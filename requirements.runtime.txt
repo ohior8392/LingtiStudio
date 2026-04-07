@@ -1,0 +1,39 @@
+# Runtime dependencies for the release Docker image.
+# Keep this file focused on browser-first generation workflows.
+
+# Core API
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+websockets>=12.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# LLM / provider clients
+openai>=1.30.0
+google-genai>=0.8.0
+
+# HTTP clients
+httpx>=0.27.0
+aiohttp>=3.9.0
+requests>=2.32.0
+pyjwt>=2.8.0
+
+# Media helpers
+pydub>=0.25.1
+mutagen>=1.47.0
+ffmpeg-python>=0.2.0
+pillow>=10.3.0
+
+# Storage / config
+sqlalchemy>=2.0.0
+aiosqlite>=0.20.0
+pyyaml>=6.0.1
+python-dotenv>=1.0.0
+aiofiles>=23.2.1
+python-multipart>=0.0.9
+
+# Tooling used at runtime
+tqdm>=4.66.0
+rich>=13.7.0
+click>=8.1.7
+

@@ -213,6 +213,11 @@ If the config is incomplete, the setup dialog will appear automatically.
 
 LingtiStudio also ships with a release-oriented Docker setup so users can start the product first and configure tokens in the browser later.
 
+The release image is intentionally trimmed for the browser-first workflow:
+- it is optimized for script -> review -> keyframes -> TTS -> clips -> assembly
+- it avoids shipping heavy optional dependencies such as local Whisper / Torch by default
+- optional integrations such as pyJianYingDraft still fall back gracefully when unavailable
+
 ### Option 1: Docker Compose
 
 ```bash
@@ -265,6 +270,11 @@ This path is intended for open-source releases where users want:
 - one container image
 - browser-first onboarding
 - persistent config and output directories on the host
+
+Notes:
+- the release image is a lighter runtime image, not a full development image
+- if you want local ASR / Whisper tooling inside Docker, treat that as an advanced custom build layer
+- for most users, the browser UI + external API providers are enough to start generating immediately after setup
 
 ---
 

@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+COPY requirements.runtime.txt ./
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.runtime.txt
 
 RUN pip3 install --no-cache-dir --break-system-packages \
     "pyJianYingDraft @ git+https://github.com/linyqh/pyJianYingDraft.git" \
@@ -49,4 +49,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://127.0.0.1:3000 || exit 1
 
 CMD ["/app/docker/start.sh"]
-
