@@ -102,6 +102,33 @@ LingtiStudio 的核心价值，是把长视频 / 多分镜 AI 生成流程尽量
 
 ---
 
+## 支持的模型
+
+下面这张表对应的是当前网页 Setup 和运行时配置里内置暴露的 provider / model 选项。
+
+| 阶段 | Provider | 内置模型 |
+| --- | --- | --- |
+| 脚本 / 规划 | MiniMax | `MiniMax-M2.5`, `MiniMax-M2.7` |
+| 脚本 / 规划 | DeepSeek | `deepseek-chat`, `deepseek-reasoner` |
+| 脚本 / 规划 | Moonshot Kimi | `moonshot-v1-8k`, `moonshot-v1-32k` |
+| 脚本 / 规划 | Zhipu | `glm-4`, `glm-4-air` |
+| 脚本 / 规划 | Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` |
+| 脚本 / 规划 | OpenAI | `gpt-4o`, `gpt-4.1-mini` |
+| 脚本 / 规划 | Ollama | `qwen2.5:latest`, `llama3.1:8b` |
+| 关键帧生图 | MiniMax Image | `image-01` |
+| 关键帧生图 | Nano Banana / Gemini Image | `gemini-2.0-flash-preview-image-generation`, `gemini-3-pro-image-preview` |
+| 配音 / TTS | MiniMax TTS | `speech-2.8-hd`, `speech-02-hd` |
+| 视频片段生成 | Kling | `kling-v3` |
+| 视频片段生成 | Seedance | `doubao-seedance-1-5-pro-250528`, `Doubao-Seedance-1.0-pro` |
+| 组装 / 字幕 / 导出 | 本地 FFmpeg | 取决于本机环境 |
+
+说明：
+- 网页里展示的是当前内置的推荐选项；如果你需要，也可以手动编辑 `configs/config.yaml`。
+- 当前只有 MiniMax 在前端里提供内置音色目录和试听能力。
+- 最终组装依赖本地 FFmpeg，所以字幕烧录和部分转场是否可用，取决于你的 FFmpeg 构建能力。
+
+---
+
 ## 首次使用
 
 当网页检测到缺少必要配置时，会自动弹出配置窗口。

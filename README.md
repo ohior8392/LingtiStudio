@@ -101,6 +101,33 @@ This is especially useful when you want the speed of AI generation but still nee
 
 ---
 
+## Supported Models
+
+The table below reflects the built-in provider and model options currently exposed by the web setup flow and runtime config.
+
+| Stage | Provider | Built-in models |
+| --- | --- | --- |
+| Script / planning | MiniMax | `MiniMax-M2.5`, `MiniMax-M2.7` |
+| Script / planning | DeepSeek | `deepseek-chat`, `deepseek-reasoner` |
+| Script / planning | Moonshot Kimi | `moonshot-v1-8k`, `moonshot-v1-32k` |
+| Script / planning | Zhipu | `glm-4`, `glm-4-air` |
+| Script / planning | Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` |
+| Script / planning | OpenAI | `gpt-4o`, `gpt-4.1-mini` |
+| Script / planning | Ollama | `qwen2.5:latest`, `llama3.1:8b` |
+| Keyframe image generation | MiniMax Image | `image-01` |
+| Keyframe image generation | Nano Banana / Gemini Image | `gemini-2.0-flash-preview-image-generation`, `gemini-3-pro-image-preview` |
+| Voiceover / TTS | MiniMax TTS | `speech-2.8-hd`, `speech-02-hd` |
+| Video clip generation | Kling | `kling-v3` |
+| Video clip generation | Seedance | `doubao-seedance-1-5-pro-250528`, `Doubao-Seedance-1.0-pro` |
+| Assembly / subtitles / export | Local FFmpeg | local environment dependent |
+
+Notes:
+- The web UI shows these as the default built-in options; advanced users can still edit `configs/config.yaml` manually.
+- MiniMax currently provides the built-in voice catalog and voice preview flow in the UI.
+- Final assembly is done locally with FFmpeg, so subtitle burn-in and some transition behaviors depend on your FFmpeg build.
+
+---
+
 ## First-Run Experience
 
 When the web UI detects missing required configuration, it automatically opens a setup dialog.
