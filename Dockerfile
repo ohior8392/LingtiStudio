@@ -3,7 +3,9 @@ FROM node:20-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/yarn.lock ./
-RUN corepack enable && yarn install --frozen-lockfile
+RUN corepack enable \
+    && yarn config set registry https://registry.npmjs.org \
+    && yarn install --frozen-lockfile --network-timeout 600000
 
 COPY frontend ./ 
 ENV NEXT_TELEMETRY_DISABLED=1
