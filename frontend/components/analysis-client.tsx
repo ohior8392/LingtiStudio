@@ -26,6 +26,7 @@ import {
   UploadOutlined
 } from "@ant-design/icons";
 
+import { useLanguage } from "@/components/language-provider";
 import {
   createProjectFromAnalysis,
   getAnalysisTask,
@@ -36,6 +37,7 @@ import {
 import type { AnalysisTask } from "@/lib/types";
 
 export function AnalysisClient() {
+  const { isZh } = useLanguage();
   const [task, setTask] = useState<AnalysisTask | null>(null);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -88,7 +90,7 @@ export function AnalysisClient() {
     }
     try {
       await replaceAnalysisCharacter(task.analysis_id, characterId, file);
-      messageApi.success("人物替换参考图已更新");
+      messageApi.success(isZh ? "人物替换参考图已更新" : "Replacement character image updated");
       await refreshTask();
     } catch (error) {
       messageApi.error((error as Error).message);
@@ -102,7 +104,7 @@ export function AnalysisClient() {
     }
     try {
       await removeAnalysisCharacter(task.analysis_id, characterId);
-      messageApi.success("已删除替换参考图");
+      messageApi.success(isZh ? "已删除替换参考图" : "Replacement image removed");
       await refreshTask();
     } catch (error) {
       messageApi.error((error as Error).message);
@@ -120,7 +122,7 @@ export function AnalysisClient() {
         video_engine: values.video_engine || "kling",
         add_subtitles: true
       });
-      messageApi.success(`${result.message}，项目 ${result.project_id}`);
+      messageApi.success(isZh ? `${result.message}，项目 ${result.project_id}` : `${result.message}, project ${result.project_id}`);
     } catch (error) {
       messageApi.error((error as Error).message);
     } finally {
@@ -155,11 +157,13 @@ export function AnalysisClient() {
         <div className="workspace-title">
           <Typography.Title level={2}>对标视频分析</Typography.Title>
           <Typography.Paragraph type="secondary">
-            上传一个参考视频，自动拆解人物、分镜、提示词和整体风格，再直接创建新项目。
+            {isZh
+              ? "上传一个参考视频，自动拆解人物、分镜、提示词和整体风格，再直接创建新项目。"
+              : "Upload a reference video to break down characters, scenes, prompts, and overall style, then create a new project directly."}
           </Typography.Paragraph>
         </div>
         <Button icon={<ReloadOutlined />} onClick={() => void refreshTask()} disabled={!task?.analysis_id}>
-          刷新
+          {isZh ? "刷新" : "Refresh"}
         </Button>
       </div>
 
@@ -168,8 +172,8 @@ export function AnalysisClient() {
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
           </p>
-          <p className="ant-upload-text">拖入或点击上传对标视频</p>
-          <p className="ant-upload-hint">支持 mp4 / mov / avi / mkv / webm / flv</p>
+          <p className="ant-upload-text">{isZh ? "拖入或点击上传对标视频" : "Drop or click to upload a reference video"}</p>
+          <p className="ant-upload-hint">{isZh ? "支持 mp4 / mov / avi / mkv / webm / flv" : "Supports mp4 / mov / avi / mkv / webm / flv"}</p>
         </Upload.Dragger>
       </Card>
 
@@ -177,13 +181,13 @@ export function AnalysisClient() {
         <Row gutter={[24, 24]}>
           <Col xs={24} xl={8}>
             <Space direction="vertical" size={24} style={{ width: "100%" }}>
-              <Card className="lingti-card" title="分析状态">
+              <Card className="lingti-card" title={isZh ? "分析状态" : "Analysis Status"}>
                 <DescriptionsBlock
                   rows={[
-                    ["任务 ID", task.analysis_id],
-                    ["状态", task.status],
-                    ["文件名", task.filename || "-"],
-                    ["创建时间", task.created_at || "-"]
+                    [isZh ? "任务 ID" : "Task ID", task.analysis_id],
+                    [isZh ? "状态" : "Status", task.status],
+                    [isZh ? "文件名" : "Filename", task.filename || "-"],
+                    [isZh ? "创建时间" : "Created at", task.created_at || "-"]
                   ]}
                 />
                 {task.status === "processing" ? (
@@ -191,8 +195,8 @@ export function AnalysisClient() {
                     style={{ marginTop: 16 }}
                     type="info"
                     showIcon
-                    message="Gemini 分析中"
-                    description="页面会自动轮询结果。"
+                    message={isZh ? "Gemini 分析中" : "Gemini is analyzing"}
+                    description={isZh ? "页面会自动轮询结果。" : "The page will poll for results automatically."}
                   />
                 ) : null}
                 {task.status === "failed" ? (
@@ -200,18 +204,18 @@ export function AnalysisClient() {
                     style={{ marginTop: 16 }}
                     type="error"
                     showIcon
-                    message="分析失败"
-                    description={task.error || "未知错误"}
+                    message={isZh ? "分析失败" : "Analysis failed"}
+                    description={task.error || (isZh ? "未知错误" : "Unknown error")}
                   />
                 ) : null}
               </Card>
 
-              <Card className="lingti-card" title="基于分析创建项目">
+              <Card className="lingti-card" title={isZh ? "基于分析创建项目" : "Create project from analysis"}>
                 <Form form={form} layout="vertical" onFinish={handleCreateProject} initialValues={{ video_engine: "kling" }}>
-                  <Form.Item name="topic" label="新项目主题">
-                    <Input placeholder="留空则使用分析出的标题" />
+                  <Form.Item name="topic" label={isZh ? "新项目主题" : "New project topic"}>
+                    <Input placeholder={isZh ? "留空则使用分析出的标题" : "Leave empty to use the analyzed title"} />
                   </Form.Item>
-                  <Form.Item name="video_engine" label="视频引擎">
+                  <Form.Item name="video_engine" label={isZh ? "视频引擎" : "Video engine"}>
                     <Select
                       options={[
                         { value: "kling", label: "Kling" },
@@ -227,7 +231,7 @@ export function AnalysisClient() {
                     loading={creating}
                     disabled={task.status !== "completed"}
                   >
-                    创建项目
+                    {isZh ? "创建项目" : "Create project"}
                   </Button>
                 </Form>
               </Card>
@@ -237,7 +241,7 @@ export function AnalysisClient() {
           <Col xs={24} xl={16}>
             {task.status === "completed" && task.result ? (
               <Space direction="vertical" size={24} style={{ width: "100%" }}>
-                <Card className="lingti-card" title="整体分析">
+                <Card className="lingti-card" title={isZh ? "整体分析" : "Overall Analysis"}>
                   <Space direction="vertical" size={10} style={{ width: "100%" }}>
                     <Typography.Title level={4} style={{ margin: 0 }}>
                       {task.result.title}
@@ -251,12 +255,12 @@ export function AnalysisClient() {
                       <Tag color="geekblue">{task.result.color_grade}</Tag>
                     </Space>
                     <Typography.Paragraph style={{ marginBottom: 0 }}>
-                      全局风格提示词：{task.result.overall_prompt}
+                      {isZh ? "全局风格提示词：" : "Global style prompt: "}{task.result.overall_prompt}
                     </Typography.Paragraph>
                   </Space>
                 </Card>
 
-                <Card className="lingti-card" title="人物替换">
+                <Card className="lingti-card" title={isZh ? "人物替换" : "Character Replacement"}>
                   {task.result.characters.length ? (
                     <Space direction="vertical" size={16} style={{ width: "100%" }}>
                       {task.result.characters.map((character) => (
@@ -264,7 +268,7 @@ export function AnalysisClient() {
                           <Space direction="vertical" size={10} style={{ width: "100%" }}>
                             <Space wrap>
                               <Tag color="blue">{character.name}</Tag>
-                              {character.replacement_image ? <Tag color="green">已替换</Tag> : <Tag>使用原人物</Tag>}
+                              {character.replacement_image ? <Tag color="green">{isZh ? "已替换" : "Replaced"}</Tag> : <Tag>{isZh ? "使用原人物" : "Using original character"}</Tag>}
                             </Space>
                             <Typography.Text>{character.description}</Typography.Text>
                             <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
@@ -272,11 +276,11 @@ export function AnalysisClient() {
                             </Typography.Paragraph>
                             <Space wrap>
                               <Upload beforeUpload={(file) => handleReplace(character.character_id, file)} showUploadList={false}>
-                                <Button icon={<UploadOutlined />}>上传替换图</Button>
+                                <Button icon={<UploadOutlined />}>{isZh ? "上传替换图" : "Upload replacement image"}</Button>
                               </Upload>
                               {character.replacement_image ? (
                                 <Button icon={<SwapOutlined />} onClick={() => void handleRemove(character.character_id)}>
-                                  移除替换图
+                                  {isZh ? "移除替换图" : "Remove replacement"}
                                 </Button>
                               ) : null}
                             </Space>
@@ -285,17 +289,17 @@ export function AnalysisClient() {
                       ))}
                     </Space>
                   ) : (
-                    <Empty description="没有识别到可替换人物" />
+                    <Empty description={isZh ? "没有识别到可替换人物" : "No replaceable characters detected"} />
                   )}
                 </Card>
 
-                <Card className="lingti-card" title="分镜拆解">
+                <Card className="lingti-card" title={isZh ? "分镜拆解" : "Scene Breakdown"}>
                   <Collapse items={sceneItems} />
                 </Card>
               </Space>
             ) : (
               <Card className="lingti-card">
-                <Empty description="上传视频后，这里会显示人物、分镜和提示词分析结果。" />
+                <Empty description={isZh ? "上传视频后，这里会显示人物、分镜和提示词分析结果。" : "After uploading a video, this section will show characters, scenes, and prompt analysis."} />
               </Card>
             )}
           </Col>

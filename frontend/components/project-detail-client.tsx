@@ -33,6 +33,7 @@ import {
   SendOutlined
 } from "@ant-design/icons";
 
+import { useLanguage } from "@/components/language-provider";
 import {
   createProjectSocket,
   deleteProject,
@@ -113,6 +114,7 @@ export function ProjectDetailClient({
   embedded?: boolean;
   onDeleted?: (projectId: string) => void;
 }) {
+  const { isZh } = useLanguage();
   const router = useRouter();
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [reviewScenes, setReviewScenes] = useState<SceneDraft[]>([]);
@@ -195,12 +197,12 @@ export function ProjectDetailClient({
 
   const reviewItems = reviewScenes.map((scene, index) => ({
     key: String(scene.scene_id),
-    label: `Scene ${scene.scene_id} · ${scene.duration}s`,
+    label: `${isZh ? "分镜" : "Scene"} ${scene.scene_id} · ${scene.duration}s`,
     children: (
       <Space direction="vertical" size={12} style={{ width: "100%" }}>
         <Space.Compact style={{ width: "100%" }}>
           <Button disabled style={{ width: 88 }}>
-            旁白
+            {isZh ? "旁白" : "Voice"}
           </Button>
           <Input
             value={scene.voiceover}
@@ -219,7 +221,7 @@ export function ProjectDetailClient({
             next[index] = { ...scene, image_prompt: event.target.value };
             setReviewScenes(next);
           }}
-          placeholder="image prompt"
+          placeholder={isZh ? "图像提示词" : "Image prompt"}
         />
         <Input.TextArea
           rows={3}
@@ -229,7 +231,7 @@ export function ProjectDetailClient({
             next[index] = { ...scene, video_prompt: event.target.value };
             setReviewScenes(next);
           }}
-          placeholder="video prompt"
+          placeholder={isZh ? "视频提示词" : "Video prompt"}
         />
       </Space>
     )
@@ -247,7 +249,7 @@ export function ProjectDetailClient({
       await loadProject();
     } catch (error) {
       if (isSetupRequiredError(error)) {
-        messageApi.warning("当前配置不完整，已经为你打开 Setup 配置窗口。");
+        messageApi.warning(isZh ? "当前配置不完整，已经为你打开 Setup 配置窗口。" : "Configuration is incomplete. The Setup dialog has been opened for you.");
       } else {
         messageApi.error((error as Error).message);
       }
@@ -257,23 +259,23 @@ export function ProjectDetailClient({
   }
 
   const artifactStats = [
-    { label: "脚本", value: artifacts?.has_script ? "已生成" : "未生成" },
-    { label: "关键帧", value: artifacts?.keyframes.length || 0 },
-    { label: "配音", value: artifacts?.audio.length || 0 },
-    { label: "视频片段", value: artifacts?.clips.length || 0 },
-    { label: "字幕", value: artifacts?.subtitles.length || 0 }
+    { label: isZh ? "脚本" : "Script", value: artifacts?.has_script ? (isZh ? "已生成" : "Ready") : (isZh ? "未生成" : "Missing") },
+    { label: isZh ? "关键帧" : "Keyframes", value: artifacts?.keyframes.length || 0 },
+    { label: isZh ? "配音" : "Voiceover", value: artifacts?.audio.length || 0 },
+    { label: isZh ? "视频片段" : "Video clips", value: artifacts?.clips.length || 0 },
+    { label: isZh ? "字幕" : "Subtitles", value: artifacts?.subtitles.length || 0 }
   ];
 
   async function handleSaveTitle() {
     const nextTitle = draftTitle.trim();
     if (!nextTitle) {
-      messageApi.warning("标题不能为空");
+      messageApi.warning(isZh ? "标题不能为空" : "Title cannot be empty");
       return;
     }
     setBusyAction("update_title");
     try {
       await updateProjectTitle(projectId, nextTitle);
-      messageApi.success("标题已更新");
+      messageApi.success(isZh ? "标题已更新" : "Title updated");
       setEditingTitle(false);
       await loadProject();
     } catch (error) {
@@ -287,7 +289,7 @@ export function ProjectDetailClient({
     setBusyAction("delete_project");
     try {
       await deleteProject(projectId);
-      messageApi.success("项目已删除");
+      messageApi.success(isZh ? "项目已删除" : "Project deleted");
       onDeleted?.(projectId);
       if (!embedded) {
         router.push("/studio");
@@ -307,14 +309,24 @@ export function ProjectDetailClient({
           <Space wrap>
             {!embedded ? (
               <Link href="/studio">
-                <Button icon={<ArrowLeftOutlined />}>返回工作台</Button>
+                <Button icon={<ArrowLeftOutlined />}>{isZh ? "返回工作台" : "Back to Studio"}</Button>
               </Link>
             ) : null}
             <Tag color="blue">{projectId}</Tag>
-            <Tag color="cyan">{stageLabel[project?.status?.stage || "idle"]}</Tag>
+            <Tag color="cyan">{isZh ? stageLabel[project?.status?.stage || "idle"] : ({
+              idle: "Idle",
+              generating_script: "Script",
+              awaiting_review: "Review",
+              generating_images: "Keyframes",
+              generating_audio: "Voiceover",
+              generating_video: "Video",
+              assembling: "Assembly",
+              completed: "Completed",
+              failed: "Failed",
+            }[project?.status?.stage || "idle"])}</Tag>
             {embedded ? (
               <Link href={`/projects/${projectId}`}>
-                <Button icon={<EyeOutlined />}>独立查看</Button>
+                <Button icon={<EyeOutlined />}>{isZh ? "独立查看" : "Open page"}</Button>
               </Link>
             ) : null}
           </Space>
@@ -342,7 +354,7 @@ export function ProjectDetailClient({
                     loading={busyAction === "update_title"}
                     onClick={() => void handleSaveTitle()}
                   >
-                    保存标题
+                    {isZh ? "保存标题" : "Save title"}
                   </Button>
                   <Button
                     size="small"
@@ -351,7 +363,7 @@ export function ProjectDetailClient({
                       setDraftTitle(scriptTitle);
                     }}
                   >
-                    取消
+                    {isZh ? "取消" : "Cancel"}
                   </Button>
                 </Space>
               ) : (
@@ -363,40 +375,42 @@ export function ProjectDetailClient({
                     setEditingTitle(true);
                   }}
                 >
-                  修改标题
+                  {isZh ? "修改标题" : "Edit title"}
                 </Button>
               )
             ) : null}
           </Space>
           <Typography.Paragraph type="secondary">
-            服务端会返回当前可执行动作。页面不再猜“能否恢复”，而是直接显示下一步。
+            {isZh
+              ? "服务端会返回当前可执行动作。页面不再猜“能否恢复”，而是直接显示下一步。"
+              : "The server returns the available actions. The UI no longer guesses whether recovery is possible."}
           </Typography.Paragraph>
         </div>
         <Space wrap>
           <Button icon={<ReloadOutlined />} onClick={() => void loadProject()}>
-            刷新
+            {isZh ? "刷新" : "Refresh"}
           </Button>
           {isCompleted ? (
             <>
               <Button icon={<DownloadOutlined />} href={getDownloadVideoUrl(projectId)} target="_blank">
-                下载视频
+                {isZh ? "下载视频" : "Download video"}
               </Button>
               <Button href={getDownloadDraftUrl(projectId)} target="_blank">
-                下载草稿
+                {isZh ? "下载草稿" : "Download draft"}
               </Button>
             </>
           ) : null}
           {(project?.status?.stage === "completed" || project?.status?.stage === "failed" || project?.status?.stage === "idle") ? (
             <Popconfirm
-              title="删除这个项目？"
-              description="会同时删除本地产物和项目记录，无法恢复。"
-              okText="删除"
-              cancelText="取消"
+              title={isZh ? "删除这个项目？" : "Delete this project?"}
+              description={isZh ? "会同时删除本地产物和项目记录，无法恢复。" : "This will permanently remove local artifacts and project records."}
+              okText={isZh ? "删除" : "Delete"}
+              cancelText={isZh ? "取消" : "Cancel"}
               okButtonProps={{ danger: true, loading: busyAction === "delete_project" }}
               onConfirm={() => void handleDeleteProject()}
             >
               <Button danger icon={<DeleteOutlined />}>
-                删除项目
+                {isZh ? "删除项目" : "Delete project"}
               </Button>
             </Popconfirm>
           ) : null}
@@ -406,13 +420,13 @@ export function ProjectDetailClient({
       <Card className="lingti-card" loading={loading}>
         <Space direction="vertical" size={18} style={{ width: "100%" }}>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            流程进度
+            {isZh ? "流程进度" : "Workflow Progress"}
           </Typography.Title>
           {project?.status?.error ? (
             <Alert
               type="error"
               showIcon
-              message="执行失败"
+              message={isZh ? "执行失败" : "Execution failed"}
               description={project.status.error}
             />
           ) : null}
@@ -424,7 +438,15 @@ export function ProjectDetailClient({
             current={getCurrentStep(project?.status?.stage)}
             status={project?.status?.stage === "failed" ? "error" : "process"}
             responsive
-            items={workflowSteps.map((item) => ({ title: item.title }))}
+            items={workflowSteps.map((item) => ({ title: isZh ? item.title : ({
+              generating_script: "Script",
+              awaiting_review: "Review",
+              generating_images: "Keyframes",
+              generating_audio: "Voice",
+              generating_video: "Video",
+              assembling: "Assembly",
+              completed: "Done",
+            }[item.key]) }))}
           />
         </Space>
       </Card>
@@ -432,32 +454,42 @@ export function ProjectDetailClient({
       <Row gutter={[24, 24]}>
         <Col xs={24} xl={9}>
           <Space direction="vertical" size={24} style={{ width: "100%" }}>
-            <Card className="lingti-card" loading={loading} title="任务状态">
+            <Card className="lingti-card" loading={loading} title={isZh ? "任务状态" : "Project Status"}>
               <Descriptions column={1} size="small" bordered>
-                <Descriptions.Item label="阶段">
-                  {stageLabel[project?.status?.stage || "idle"]}
+                <Descriptions.Item label={isZh ? "阶段" : "Stage"}>
+                  {isZh ? stageLabel[project?.status?.stage || "idle"] : ({
+                    idle: "Idle",
+                    generating_script: "Generating script",
+                    awaiting_review: "Awaiting review",
+                    generating_images: "Generating keyframes",
+                    generating_audio: "Generating voiceover",
+                    generating_video: "Generating video",
+                    assembling: "Assembling",
+                    completed: "Completed",
+                    failed: "Failed",
+                  }[project?.status?.stage || "idle"])}
                 </Descriptions.Item>
-                <Descriptions.Item label="进度">
+                <Descriptions.Item label={isZh ? "进度" : "Progress"}>
                   {project?.status?.progress ?? 0}%
                 </Descriptions.Item>
-                <Descriptions.Item label="消息">
+                <Descriptions.Item label={isZh ? "消息" : "Message"}>
                   {project?.status?.message || "-"}
                 </Descriptions.Item>
-                <Descriptions.Item label="当前分镜">
+                <Descriptions.Item label={isZh ? "当前分镜" : "Current scene"}>
                   {project?.status?.current_scene && project?.status?.total_scenes
                     ? `${project.status.current_scene} / ${project.status.total_scenes}`
                     : "-"}
                 </Descriptions.Item>
-                <Descriptions.Item label="创建时间">
+                <Descriptions.Item label={isZh ? "创建时间" : "Created at"}>
                   {project?.created_at ? new Date(project.created_at).toLocaleString("zh-CN") : "-"}
                 </Descriptions.Item>
-                <Descriptions.Item label="旁白音色">
+                <Descriptions.Item label={isZh ? "旁白音色" : "Voice"}>
                   {project?.voice_id || "-"}
                 </Descriptions.Item>
               </Descriptions>
             </Card>
 
-            <Card className="lingti-card" loading={loading} title="实时控制台">
+            <Card className="lingti-card" loading={loading} title={isZh ? "实时控制台" : "Live Console"}>
               {logs.length ? (
                 <div className="log-console">
                   {logs.map((log, index) => (
@@ -473,13 +505,13 @@ export function ProjectDetailClient({
                 <Alert
                   type="info"
                   showIcon
-                  message="还没有日志输出"
-                  description="工作流启动后，这里会实时显示后端生成过程中的命令行输出。"
+                  message={isZh ? "还没有日志输出" : "No logs yet"}
+                  description={isZh ? "工作流启动后，这里会实时显示后端生成过程中的命令行输出。" : "Console output from the backend workflow will appear here in real time."}
                 />
               )}
             </Card>
 
-            <Card className="lingti-card" loading={loading} title="产物概览">
+            <Card className="lingti-card" loading={loading} title={isZh ? "产物概览" : "Artifacts Overview"}>
               <Descriptions column={1} size="small" bordered>
                 {artifactStats.map((item) => (
                   <Descriptions.Item key={item.label} label={item.label}>
@@ -493,15 +525,15 @@ export function ProjectDetailClient({
 
         <Col xs={24} xl={15}>
           <Space direction="vertical" size={24} style={{ width: "100%" }}>
-            <Card className="lingti-card" loading={loading} title="脚本审核台">
+            <Card className="lingti-card" loading={loading} title={isZh ? "脚本审核台" : "Script Review"}>
               <Space direction="vertical" size={18} style={{ width: "100%" }}>
                 <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
-                  如果项目进入审核阶段，可以直接改旁白、图像提示词和视频提示词，再一键继续。
+                  {isZh ? "如果项目进入审核阶段，可以直接改旁白、图像提示词和视频提示词，再一键继续。" : "When the project enters review, edit narration, image prompts, and video prompts here before continuing."}
                 </Typography.Paragraph>
                 {reviewScenes.length ? (
                   <Collapse accordion={false} items={reviewItems} />
                 ) : (
-                  <Empty description="还没有可审核的分镜" />
+                  <Empty description={isZh ? "还没有可审核的分镜" : "No reviewable scenes yet"} />
                 )}
                 {isAwaitingReview ? (
                   <Space wrap>
@@ -511,28 +543,28 @@ export function ProjectDetailClient({
                       loading={busyAction === "approve_review"}
                       onClick={() => void handleAction("approve_review")}
                     >
-                      审核通过并继续
+                      {isZh ? "审核通过并继续" : "Approve and continue"}
                     </Button>
                     <Button
                       danger
                       loading={busyAction === "reject_review"}
                       onClick={() => void handleAction("reject_review")}
                     >
-                      驳回项目
+                      {isZh ? "驳回项目" : "Reject project"}
                     </Button>
                   </Space>
                 ) : (
                   <Alert
                     type="info"
                     showIcon
-                    message="当前项目不在人工审核阶段"
-                    description="如果后端进入 awaiting_review，这里会自动切成可提交状态。"
+                    message={isZh ? "当前项目不在人工审核阶段" : "This project is not in manual review"}
+                    description={isZh ? "如果后端进入 awaiting_review，这里会自动切成可提交状态。" : "If the backend enters awaiting_review, this panel will switch into submit mode automatically."}
                   />
                 )}
               </Space>
             </Card>
 
-            <Card className="lingti-card" loading={loading} title="输出与资产">
+            <Card className="lingti-card" loading={loading} title={isZh ? "输出与资产" : "Output and Assets"}>
               {isCompleted && project?.result?.final_video ? (
                 <Space direction="vertical" size={16} style={{ width: "100%" }}>
                   <video
@@ -542,43 +574,43 @@ export function ProjectDetailClient({
                     style={{ width: "100%", borderRadius: 18, background: "#110808" }}
                   />
                   <Descriptions column={1} size="small" bordered>
-                    <Descriptions.Item label="视频文件">
+                    <Descriptions.Item label={isZh ? "视频文件" : "Video file"}>
                       {project.result.final_video}
                     </Descriptions.Item>
-                    <Descriptions.Item label="字幕文件">
-                      {artifacts?.subtitles[0] || "无"}
+                    <Descriptions.Item label={isZh ? "字幕文件" : "Subtitle file"}>
+                      {artifacts?.subtitles[0] || (isZh ? "无" : "None")}
                     </Descriptions.Item>
-                    <Descriptions.Item label="剪映草稿">
+                    <Descriptions.Item label={isZh ? "剪映草稿" : "JianYing draft"}>
                       {project.result.draft_dir || "-"}
                     </Descriptions.Item>
-                    <Descriptions.Item label="总时长">
+                    <Descriptions.Item label={isZh ? "总时长" : "Total duration"}>
                       {project.result.total_duration ? `${project.result.total_duration.toFixed(1)}s` : "-"}
                     </Descriptions.Item>
                   </Descriptions>
                 </Space>
               ) : artifacts?.has_clips ? (
                 <Descriptions column={1} size="small" bordered>
-                  <Descriptions.Item label="已生成片段">
+                  <Descriptions.Item label={isZh ? "已生成片段" : "Generated clips"}>
                     {artifacts.clips.length}
                   </Descriptions.Item>
-                  <Descriptions.Item label="最终视频">
-                    {artifacts.final_video || "尚未生成"}
+                  <Descriptions.Item label={isZh ? "最终视频" : "Final video"}>
+                    {artifacts.final_video || (isZh ? "尚未生成" : "Not generated yet")}
                   </Descriptions.Item>
-                  <Descriptions.Item label="字幕">
-                    {artifacts.subtitles.length ? artifacts.subtitles.join("\n") : "尚未生成"}
+                  <Descriptions.Item label={isZh ? "字幕" : "Subtitles"}>
+                    {artifacts.subtitles.length ? artifacts.subtitles.join("\n") : (isZh ? "尚未生成" : "Not generated yet")}
                   </Descriptions.Item>
                 </Descriptions>
               ) : (
                 <Alert
                   type="warning"
                   showIcon
-                  message="成片尚未生成"
-                  description="生成完成后，这里会直接提供预览、下载视频和下载剪映草稿。"
+                  message={isZh ? "成片尚未生成" : "Final video not ready yet"}
+                  description={isZh ? "生成完成后，这里会直接提供预览、下载视频和下载剪映草稿。" : "Once generation is complete, this section will provide preview, video download, and JianYing draft download."}
                 />
               )}
             </Card>
 
-            <Card className="lingti-card" loading={loading} title="下一步操作">
+            <Card className="lingti-card" loading={loading} title={isZh ? "下一步操作" : "Next Actions"}>
               {actions.length ? (
                 <Space direction="vertical" size={12} style={{ width: "100%" }}>
                   {actions.map((action) => (
@@ -598,8 +630,8 @@ export function ProjectDetailClient({
                 <Alert
                   type="info"
                   showIcon
-                  message="当前没有可执行动作"
-                  description="进行中的任务会自动继续，已完成任务可直接下载或重新组装。"
+                  message={isZh ? "当前没有可执行动作" : "No available actions"}
+                  description={isZh ? "进行中的任务会自动继续，已完成任务可直接下载或重新组装。" : "Running tasks continue automatically. Completed tasks can be downloaded or reassembled directly."}
                 />
               )}
             </Card>

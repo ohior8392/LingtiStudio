@@ -20,6 +20,7 @@ import {
 import { CustomerServiceOutlined, InboxOutlined, RocketOutlined, SoundOutlined, UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 
+import { useLanguage } from "@/components/language-provider";
 import { createProject, getConnectorStatus, isSetupRequiredError, listTtsVoices, previewTtsVoice, uploadReference } from "@/lib/api";
 import type { ConnectorStatus, VoiceOption } from "@/lib/types";
 
@@ -41,6 +42,7 @@ interface FormValues {
 }
 
 export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
+  const { isZh } = useLanguage();
   const [form] = Form.useForm<FormValues>();
   const [submitting, setSubmitting] = useState(false);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
@@ -66,7 +68,7 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
           const result = await uploadReference(file as File);
           setUploadedFiles((prev) => [...prev, { uid: currentFile.uid, path: result.path }]);
           onSuccess?.(result);
-          messageApi.success(`${result.filename} 上传成功`);
+          messageApi.success(isZh ? `${result.filename} 上传成功` : `${result.filename} uploaded successfully`);
         } catch (error) {
           onError?.(error as Error);
           messageApi.error((error as Error).message);
@@ -185,8 +187,8 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
 
   async function handlePreview() {
     const voiceId = form.getFieldValue("voice_id");
-    if (!voiceId) {
-      messageApi.warning("请先选择一个音色");
+      if (!voiceId) {
+      messageApi.warning(isZh ? "请先选择一个音色" : "Select a voice first");
       return;
     }
     setPreviewingVoiceId(voiceId);
@@ -221,7 +223,7 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
       setFileList([]);
     } catch (error) {
       if (isSetupRequiredError(error)) {
-        messageApi.warning("当前配置不完整，已经为你打开 Setup 配置窗口。");
+        messageApi.warning(isZh ? "当前配置不完整，已经为你打开 Setup 配置窗口。" : "Configuration is incomplete. The Setup dialog has been opened for you.");
       } else {
         messageApi.error((error as Error).message);
       }
@@ -238,12 +240,12 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
       <Space direction="vertical" size={20} style={{ width: "100%" }}>
         <div className="workspace-title">
           <Typography.Title level={3}>
-            {isSimple ? "快速发起一个视频任务" : "专业工作台 · 新建任务"}
+            {isSimple ? (isZh ? "快速发起一个视频任务" : "Start a video project quickly") : (isZh ? "专业工作台 · 新建任务" : "Studio · Create Project")}
           </Typography.Title>
           <Typography.Paragraph type="secondary">
             {isSimple
-              ? "只填核心信息就能开始。高级参数默认走推荐值，需要时再展开。"
-              : "保留完整控制项，适合频繁创建、排错、恢复和精调工作流。"}
+              ? (isZh ? "只填核心信息就能开始。高级参数默认走推荐值，需要时再展开。" : "Fill only the essentials to start. Advanced parameters stay on recommended defaults until you need them.")
+              : (isZh ? "保留完整控制项，适合频繁创建、排错、恢复和精调工作流。" : "Keep full control over creation, debugging, recovery, and workflow tuning.")}
           </Typography.Paragraph>
         </div>
         <Form<FormValues>
@@ -260,18 +262,18 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
         >
           <Form.Item
             name="topic"
-            label="主题需求"
-            rules={[{ required: true, message: "请输入主题" }]}
+            label={isZh ? "主题需求" : "Project brief"}
+            rules={[{ required: true, message: isZh ? "请输入主题" : "Enter a topic" }]}
           >
             <Input.TextArea
               rows={isSimple ? 5 : 4}
-              placeholder="例如：几个老年人在现代化酒店里休闲打牌，前景讲解养老项目，画面高端优雅"
+              placeholder={isZh ? "例如：几个老年人在现代化酒店里休闲打牌，前景讲解养老项目，画面高端优雅" : "Example: elderly people playing cards in a modern hotel while a host introduces a retirement service in a premium visual style"}
               showCount
               maxLength={800}
             />
           </Form.Item>
-          <Form.Item name="style" label="风格描述">
-            <Input placeholder="例如：高级酒店广告、温暖阳光、克制旁白" />
+          <Form.Item name="style" label={isZh ? "风格描述" : "Style direction"}>
+            <Input placeholder={isZh ? "例如：高级酒店广告、温暖阳光、克制旁白" : "Example: premium hospitality ad, warm sunlight, restrained narration"} />
           </Form.Item>
 
           <Card className="lingti-mini-card voice-card" size="small">
@@ -279,11 +281,11 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
               <div className="voice-card-header">
                 <Space>
                   <CustomerServiceOutlined />
-                  <Typography.Text strong>旁白音色</Typography.Text>
+                  <Typography.Text strong>{isZh ? "旁白音色" : "Narration voice"}</Typography.Text>
                   {supportsVoiceCatalog ? (
-                    voiceFallback ? <Tag color="gold">回退列表</Tag> : <Tag color="blue">MiniMax 官方目录</Tag>
+                    voiceFallback ? <Tag color="gold">{isZh ? "回退列表" : "Fallback list"}</Tag> : <Tag color="blue">{isZh ? "MiniMax 官方目录" : "MiniMax official catalog"}</Tag>
                   ) : (
-                    <Tag color="default">手动 voice_id</Tag>
+                    <Tag color="default">{isZh ? "手动 voice_id" : "Manual voice_id"}</Tag>
                   )}
                 </Space>
                 {supportsVoiceCatalog ? (
@@ -294,26 +296,26 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                     onClick={() => void handlePreview()}
                     disabled={!form.getFieldValue("voice_id")}
                   >
-                    试听当前音色
+                    {isZh ? "试听当前音色" : "Preview selected voice"}
                   </Button>
                 ) : null}
               </div>
 
               {supportsVoiceCatalog ? (
-                <Form.Item name="voice_id" label="选择音色" style={{ marginBottom: 0 }}>
+                <Form.Item name="voice_id" label={isZh ? "选择音色" : "Select voice"} style={{ marginBottom: 0 }}>
                   <Select
                     showSearch
                     loading={voiceLoading}
                     optionFilterProp="label"
-                    placeholder="请选择一个旁白音色"
+                    placeholder={isZh ? "请选择一个旁白音色" : "Select a narration voice"}
                     options={groupedVoiceOptions}
                     onChange={(value) => setSelectedVoiceId(value)}
-                    notFoundContent={voiceLoading ? "音色加载中..." : "当前筛选下没有可用音色"}
+                    notFoundContent={voiceLoading ? (isZh ? "音色加载中..." : "Loading voices...") : (isZh ? "当前筛选下没有可用音色" : "No voice found for the current filters")}
                   />
                 </Form.Item>
               ) : (
-                <Form.Item name="voice_id" label="填写 voice_id" style={{ marginBottom: 0 }}>
-                  <Input placeholder="当前 TTS provider 不依赖 MiniMax 音色目录，请手动输入 voice_id" />
+                <Form.Item name="voice_id" label={isZh ? "填写 voice_id" : "Enter voice_id"} style={{ marginBottom: 0 }}>
+                  <Input placeholder={isZh ? "当前 TTS provider 不依赖 MiniMax 音色目录，请手动输入 voice_id" : "The current TTS provider does not use the MiniMax voice catalog. Enter a voice_id manually."} />
                 </Form.Item>
               )}
 
@@ -325,7 +327,7 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                     style={{ width: 156 }}
                     onChange={setVoiceLanguageFilter}
                     options={[
-                      { value: "all", label: "全部语言" },
+                      { value: "all", label: isZh ? "全部语言" : "All languages" },
                       ...voiceLanguages.map((language) => ({ value: language, label: language })),
                     ]}
                   />
@@ -335,12 +337,12 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                     style={{ width: 168 }}
                     onChange={setVoiceTagFilter}
                     options={[
-                      { value: "all", label: "全部风格" },
+                      { value: "all", label: isZh ? "全部风格" : "All styles" },
                       ...voiceTags.map((tag) => ({ value: tag, label: tag })),
                     ]}
                   />
                   <Typography.Text type="secondary">
-                    当前显示 {visibleVoices.length} / {voices.length} 个音色
+                    {isZh ? `当前显示 ${visibleVoices.length} / ${voices.length} 个音色` : `Showing ${visibleVoices.length} / ${voices.length} voices`}
                   </Typography.Text>
                 </Space>
               ) : null}
@@ -349,15 +351,15 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                 <Alert
                   type="warning"
                   showIcon
-                  message="官方音色目录暂时不可用"
-                  description="当前展示的是本地回退音色列表，你仍然可以继续创建并生成视频。"
+                  message={isZh ? "官方音色目录暂时不可用" : "The official voice catalog is temporarily unavailable"}
+                  description={isZh ? "当前展示的是本地回退音色列表，你仍然可以继续创建并生成视频。" : "A local fallback voice list is shown right now. You can still continue and generate videos."}
                 />
               ) : !supportsVoiceCatalog ? (
                 <Alert
                   type="info"
                   showIcon
-                  message="当前 TTS provider 不提供内置音色目录"
-                  description="创建任务时会直接把你填写的 voice_id 传给后端，不再显示 MiniMax 音色选择器。"
+                  message={isZh ? "当前 TTS provider 不提供内置音色目录" : "The current TTS provider does not expose a built-in voice catalog"}
+                  description={isZh ? "创建任务时会直接把你填写的 voice_id 传给后端，不再显示 MiniMax 音色选择器。" : "The voice_id you enter will be passed directly to the backend. The MiniMax voice picker is hidden for this provider."}
                 />
               ) : null}
 
@@ -373,10 +375,10 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                     ))}
                   </Space>
                   <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                    {selectedVoice.description || "这个音色适合做视频旁白、讲解或人物对白。"}
+                    {selectedVoice.description || (isZh ? "这个音色适合做视频旁白、讲解或人物对白。" : "This voice works well for narration, explainers, or character dialogue.")}
                   </Typography.Paragraph>
                   <Typography.Text type="secondary">
-                    试听文案固定为一段标准旁白，便于你快速横向比较不同音色。
+                    {isZh ? "试听文案固定为一段标准旁白，便于你快速横向比较不同音色。" : "Preview uses a fixed sample script so you can compare voices quickly."}
                   </Typography.Text>
                 </div>
               ) : null}
@@ -384,31 +386,31 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
           </Card>
 
           <Space wrap size={16} style={{ display: "flex", marginBottom: 8 }}>
-            <Form.Item name="target_duration" label="目标时长">
+            <Form.Item name="target_duration" label={isZh ? "目标时长" : "Target duration"}>
               <InputNumber min={15} max={180} />
             </Form.Item>
-            <Form.Item name="aspect_ratio" label="画面比例">
+            <Form.Item name="aspect_ratio" label={isZh ? "画面比例" : "Aspect ratio"}>
               <Select
                 style={{ width: 144 }}
                 options={[
-                  { value: "9:16", label: "9:16 竖屏" },
-                  { value: "16:9", label: "16:9 横屏" }
+                  { value: "9:16", label: isZh ? "9:16 竖屏" : "9:16 vertical" },
+                  { value: "16:9", label: isZh ? "16:9 横屏" : "16:9 horizontal" }
                 ]}
               />
             </Form.Item>
-            <Form.Item name="add_subtitles" label="字幕" valuePropName="checked">
-              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+            <Form.Item name="add_subtitles" label={isZh ? "字幕" : "Subtitles"} valuePropName="checked">
+              <Switch checkedChildren={isZh ? "开启" : "On"} unCheckedChildren={isZh ? "关闭" : "Off"} />
             </Form.Item>
           </Space>
 
-          <Form.Item label="参考图 / 参考视频">
+          <Form.Item label={isZh ? "参考图 / 参考视频" : "Reference images / videos"}>
             <Upload.Dragger {...uploadProps} accept="image/*,video/*">
               <p className="ant-upload-drag-icon">
                 <InboxOutlined />
               </p>
-              <p className="ant-upload-text">上传人物图、产品图或参考视频</p>
+              <p className="ant-upload-text">{isZh ? "上传人物图、产品图或参考视频" : "Upload character images, product images, or reference videos"}</p>
               <p className="ant-upload-hint">
-                当前已上传 {uploadedFiles.length} 个素材，后端会自动用作参考图或截帧。
+                {isZh ? `当前已上传 ${uploadedFiles.length} 个素材，后端会自动用作参考图或截帧。` : `${uploadedFiles.length} assets uploaded. The backend will use them as references or extract frames automatically.`}
               </p>
             </Upload.Dragger>
           </Form.Item>
@@ -419,11 +421,11 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
             items={[
               {
                 key: "advanced",
-                label: isSimple ? "高级参数" : "引擎与一致性设置",
+                label: isSimple ? (isZh ? "高级参数" : "Advanced settings") : (isZh ? "引擎与一致性设置" : "Engine and consistency settings"),
                 children: (
                   <>
                     <Space wrap size={16} style={{ display: "flex", marginBottom: 8 }}>
-                      <Form.Item name="video_engine" label="视频引擎">
+                      <Form.Item name="video_engine" label={isZh ? "视频引擎" : "Video engine"}>
                         <Select
                           style={{ width: 144 }}
                           options={[
@@ -433,7 +435,7 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                           ]}
                         />
                       </Form.Item>
-                      <Form.Item name="resolution" label="分辨率">
+                      <Form.Item name="resolution" label={isZh ? "分辨率" : "Resolution"}>
                         <Select
                           style={{ width: 144 }}
                           options={[
@@ -444,8 +446,8 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
                         />
                       </Form.Item>
                     </Space>
-                    <Form.Item name="global_style_prompt" label="全局风格提示词">
-                      <Input placeholder="用于约束全片风格一致性，可留空" />
+                    <Form.Item name="global_style_prompt" label={isZh ? "全局风格提示词" : "Global style prompt"}>
+                      <Input placeholder={isZh ? "用于约束全片风格一致性，可留空" : "Used to keep style consistency across the whole video. Optional."} />
                     </Form.Item>
                   </>
                 )
@@ -460,7 +462,7 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
             loading={submitting}
             icon={isSimple ? <RocketOutlined /> : <UploadOutlined />}
           >
-            {isSimple ? "开始生成" : "启动工作流"}
+            {isSimple ? (isZh ? "开始生成" : "Start generation") : (isZh ? "启动工作流" : "Start workflow")}
           </Button>
         </Form>
       </Space>

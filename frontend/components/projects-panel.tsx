@@ -22,6 +22,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
+import { useLanguage } from "@/components/language-provider";
 import { deleteProject, listProjects, reassembleProject, resumeProject, resumeProjectFromScript } from "@/lib/api";
 import type { ProjectAction, ProjectRecord, WorkflowStage } from "@/lib/types";
 
@@ -68,6 +69,7 @@ export function ProjectsPanel({
   onSelect,
   compact = false
 }: Props) {
+  const { isZh } = useLanguage();
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -163,25 +165,29 @@ export function ProjectsPanel({
   return (
     <Card
       className="lingti-card"
-      title="任务中心"
+      title={isZh ? "任务中心" : "Task Center"}
       extra={
         <Space>
-          <Tag color="success">完成 {grouped.done.length}</Tag>
+          <Tag color="success">{isZh ? `完成 ${grouped.done.length}` : `Done ${grouped.done.length}`}</Tag>
           <Button icon={<ReloadOutlined />} onClick={() => void fetchProjects()}>
-            刷新
+            {isZh ? "刷新" : "Refresh"}
           </Button>
         </Space>
       }
     >
       {error ? <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} /> : null}
       {!projects.length && !loading ? (
-        <Empty description="还没有项目记录" />
+        <Empty description={isZh ? "还没有项目记录" : "No projects yet"} />
       ) : (
         <Space direction="vertical" size={18} style={{ width: "100%" }}>
           {visibleGroups.map((group) => (
             <div key={group.key}>
               <Typography.Title level={5} style={{ marginBottom: 12 }}>
-                {group.title}
+                {group.key === "focus"
+                  ? isZh ? "待处理与进行中" : "Active and pending"
+                  : group.key === "failed"
+                    ? isZh ? "失败待处理" : "Failed and waiting"
+                    : isZh ? "已完成" : "Completed"}
               </Typography.Title>
               {group.items.length ? (
                 <List
@@ -216,10 +222,10 @@ export function ProjectsPanel({
                           project.status?.stage === "completed" || project.status?.stage === "failed" ? (
                             <Popconfirm
                               key="delete"
-                              title="删除这个项目？"
-                              description="会同时删除本地产物和项目记录，无法恢复。"
-                              okText="删除"
-                              cancelText="取消"
+                              title={isZh ? "删除这个项目？" : "Delete this project?"}
+                              description={isZh ? "会同时删除本地产物和项目记录，无法恢复。" : "This will permanently remove local artifacts and project records."}
+                              okText={isZh ? "删除" : "Delete"}
+                              cancelText={isZh ? "取消" : "Cancel"}
                               okButtonProps={{ danger: true, loading: busyKey === `${project.id}:delete` }}
                               onConfirm={() => void handleDelete(project.id)}
                             >
@@ -232,12 +238,12 @@ export function ProjectsPanel({
                                   event.stopPropagation();
                                 }}
                               >
-                                删除
+                                {isZh ? "删除" : "Delete"}
                               </Button>
                             </Popconfirm>
                           ) : null,
                           <Link key="detail" href={`/projects/${project.id}`}>
-                            查看详情
+                            {isZh ? "查看详情" : "View details"}
                           </Link>
                         ].filter(Boolean)}
                       >
@@ -247,17 +253,29 @@ export function ProjectsPanel({
                             <Space wrap>
                               <Typography.Text strong>{project.title || project.script?.title || project.topic || project.id}</Typography.Text>
                               <Tag color={stageColorMap[project.status?.stage || "idle"]}>
-                                {stageLabelMap[project.status?.stage || "idle"]}
+                                {(isZh
+                                  ? stageLabelMap[project.status?.stage || "idle"]
+                                  : {
+                                      idle: "Idle",
+                                      generating_script: "Generating script",
+                                      awaiting_review: "Awaiting review",
+                                      generating_images: "Generating keyframes",
+                                      generating_audio: "Generating voiceover",
+                                      generating_video: "Generating video",
+                                      assembling: "Assembling",
+                                      completed: "Completed",
+                                      failed: "Failed",
+                                    }[project.status?.stage || "idle"])}
                               </Tag>
-                              {selectedProjectId === project.id ? <Tag color="blue">当前查看</Tag> : null}
-                              {project.artifacts?.has_result ? <Tag color="green">已有成片</Tag> : null}
-                              {project.actions?.length ? <Tag color="orange">待操作 {project.actions.length}</Tag> : null}
+                              {selectedProjectId === project.id ? <Tag color="blue">{isZh ? "当前查看" : "Selected"}</Tag> : null}
+                              {project.artifacts?.has_result ? <Tag color="green">{isZh ? "已有成片" : "Has final video"}</Tag> : null}
+                              {project.actions?.length ? <Tag color="orange">{isZh ? `待操作 ${project.actions.length}` : `Actions ${project.actions.length}`}</Tag> : null}
                             </Space>
                           }
                           description={
                             <Space direction="vertical" size={4}>
                               <Typography.Text type="secondary">
-                                {project.status?.message || "等待状态回传"}
+                                {project.status?.message || (isZh ? "等待状态回传" : "Waiting for status updates")}
                               </Typography.Text>
                               <Typography.Text type="secondary">
                                 {dayjs(project.created_at).format("YYYY-MM-DD HH:mm:ss")} · {project.status?.progress ?? 0}%
@@ -270,7 +288,14 @@ export function ProjectsPanel({
                   }}
                 />
               ) : (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`暂无${group.title}`} />
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    isZh
+                      ? `暂无${group.key === "focus" ? "待处理与进行中项目" : group.key === "failed" ? "失败项目" : "已完成项目"}`
+                      : `No ${group.key === "focus" ? "active projects" : group.key === "failed" ? "failed projects" : "completed projects"}`
+                  }
+                />
               )}
             </div>
           ))}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layout, Menu, Space, Tag, Typography } from "antd";
+import { Layout, Menu, Segmented, Space, Tag, Typography } from "antd";
 import {
   ApiOutlined,
   CompassOutlined,
@@ -10,12 +10,14 @@ import {
   RocketOutlined,
   ThunderboltOutlined
 } from "@ant-design/icons";
+import { useLanguage } from "@/components/language-provider";
 
 const { Sider, Content } = Layout;
 
 export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const selectedKey = pathname.startsWith("/projects/") ? "/studio" : pathname;
+  const { locale, isZh, setLocale } = useLanguage();
 
   return (
     <Layout className="app-shell">
@@ -29,8 +31,19 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
               LingtiStudio
             </Typography.Title>
             <Typography.Paragraph style={{ color: "#c8a8a8", margin: 0 }}>
-              The greyhound-speed AI video workflow for creation, review, recovery, and delivery.
+              {isZh
+                ? "像灵缇一样快速的 AI 视频工作流，覆盖创建、审核、恢复与交付。"
+                : "The greyhound-speed AI video workflow for creation, review, recovery, and delivery."}
             </Typography.Paragraph>
+            <Segmented
+              size="small"
+              value={locale}
+              onChange={(value) => setLocale(value as "zh" | "en")}
+              options={[
+                { value: "zh", label: "中文" },
+                { value: "en", label: "EN" },
+              ]}
+            />
           </Space>
         </div>
         <Menu
@@ -41,22 +54,22 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
             {
               key: "/",
               icon: <HomeOutlined />,
-              label: <Link href="/">首页</Link>
+              label: <Link href="/">{isZh ? "首页" : "Home"}</Link>
             },
             {
               key: "/create",
               icon: <ThunderboltOutlined />,
-              label: <Link href="/create">快速生成</Link>
+              label: <Link href="/create">{isZh ? "快速生成" : "Quick Create"}</Link>
             },
             {
               key: "/studio",
               icon: <RocketOutlined />,
-              label: <Link href="/studio">专业工作台</Link>
+              label: <Link href="/studio">{isZh ? "专业工作台" : "Studio"}</Link>
             },
             {
               key: "/analyze",
               icon: <CompassOutlined />,
-              label: <Link href="/analyze">对标分析</Link>
+              label: <Link href="/analyze">{isZh ? "对标分析" : "Reference Analysis"}</Link>
             },
             {
               key: "/settings",
@@ -67,8 +80,8 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
         />
         <div className="app-sider-note">
           <Space direction="vertical" size={8}>
-            <span>普通运营优先用“快速生成”。</span>
-            <span>需要审核、恢复和日志排错时切到“专业工作台”。</span>
+            <span>{isZh ? "普通运营优先用“快速生成”。" : 'Start with "Quick Create" for simple jobs.'}</span>
+            <span>{isZh ? "需要审核、恢复和日志排错时切到“专业工作台”。" : 'Use "Studio" for review, recovery, logs, and debugging.'}</span>
           </Space>
         </div>
       </Sider>

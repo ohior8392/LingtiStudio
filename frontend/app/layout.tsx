@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>
+      <body suppressHydrationWarning>
         <Providers>
           <WorkspaceLayout>
             <SetupOnboarding />

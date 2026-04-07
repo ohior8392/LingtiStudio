@@ -16,6 +16,7 @@ import {
 } from "antd";
 import { SoundOutlined } from "@ant-design/icons";
 
+import { useLanguage } from "@/components/language-provider";
 import { listTtsVoices, previewTtsVoice, updateApiKeys } from "@/lib/api";
 import type { ProviderOption, SystemSetup, VoiceOption } from "@/lib/types";
 
@@ -60,6 +61,7 @@ export function ConfigurationForm({
   onSaved?: () => Promise<void> | void;
   showTitle?: boolean;
 }) {
+  const { isZh } = useLanguage();
   const [form] = Form.useForm<FormValues>();
   const [saving, setSaving] = useState(false);
   const [voiceLoading, setVoiceLoading] = useState(false);
@@ -234,7 +236,7 @@ export function ConfigurationForm({
         Object.entries(values).filter(([, value]) => typeof value === "string" && value.trim())
       );
       await updateApiKeys(payload);
-      messageApi.success("配置已保存");
+      messageApi.success(isZh ? "配置已保存" : "Configuration saved");
       await onSaved?.();
     } catch (error) {
       messageApi.error((error as Error).message);
@@ -248,9 +250,11 @@ export function ConfigurationForm({
       {contextHolder}
       {showTitle ? (
         <div className="workspace-title">
-          <Typography.Title level={3}>首次配置 LingtiStudio</Typography.Title>
+          <Typography.Title level={3}>{isZh ? "首次配置 LingtiStudio" : "Set up LingtiStudio"}</Typography.Title>
           <Typography.Paragraph type="secondary">
-            选择你要用的 provider 和模型，填完必要的密钥后就可以开始生成视频。
+            {isZh
+              ? "选择你要用的 provider 和模型，填完必要的密钥后就可以开始生成视频。"
+              : "Choose the providers and models you want, fill in the required credentials, and start generating."}
           </Typography.Paragraph>
         </div>
       ) : null}
@@ -259,13 +263,13 @@ export function ConfigurationForm({
         <Alert
           type="warning"
           showIcon
-          message="当前配置还不完整"
+          message={isZh ? "当前配置还不完整" : "Configuration is still incomplete"}
           description={
             <Space direction="vertical" size={4}>
               {setup.missing_requirements.map((item) => (
                 <span key={item.key}>{item.message}</span>
               ))}
-              <span>配置将写入：{setup.config_path}</span>
+              <span>{isZh ? "配置将写入" : "Configuration will be written to"}：{setup.config_path}</span>
             </Space>
           }
         />
@@ -274,18 +278,18 @@ export function ConfigurationForm({
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="llm_provider" label="默认 LLM Provider">
+            <Form.Item name="llm_provider" label={isZh ? "默认 LLM Provider" : "Default LLM provider"}>
               <Select
                 options={llmProviderOptions.map((item) => ({ value: item.value, label: item.label }))}
               />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="llm_model" label="LLM Model">
+            <Form.Item name="llm_model" label={isZh ? "LLM 模型" : "LLM model"}>
               <Select
                 showSearch
                 options={llmModels.map((item) => ({ value: item, label: item }))}
-                placeholder="选择或输入一个模型"
+                placeholder={isZh ? "选择或输入一个模型" : "Select or enter a model"}
               />
             </Form.Item>
           </Col>
@@ -299,25 +303,25 @@ export function ConfigurationForm({
           </Col>
           <Col xs={24} md={12}>
             <Form.Item name="image_gen_api_key" label="Image API Key">
-              <Input.Password placeholder="留空则按 provider 默认逻辑处理" />
+              <Input.Password placeholder={isZh ? "留空则按 provider 默认逻辑处理" : "Leave empty to use the provider default behavior"} />
             </Form.Item>
           </Col>
         </Row>
 
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="image_provider" label="图片 Provider">
+            <Form.Item name="image_provider" label={isZh ? "图片 Provider" : "Image provider"}>
               <Select
                 options={imageProviderOptions.map((item) => ({ value: item.value, label: item.label }))}
               />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="image_model" label="图片 Model">
+            <Form.Item name="image_model" label={isZh ? "图片模型" : "Image model"}>
               <Select
                 showSearch
                 options={imageModels.map((item) => ({ value: item, label: item }))}
-                placeholder="选择图片模型"
+                placeholder={isZh ? "选择图片模型" : "Select an image model"}
               />
             </Form.Item>
           </Col>
@@ -325,18 +329,18 @@ export function ConfigurationForm({
 
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="video_provider" label="默认视频 Provider">
+            <Form.Item name="video_provider" label={isZh ? "默认视频 Provider" : "Default video provider"}>
               <Select
                 options={videoProviderOptions.map((item) => ({ value: item.value, label: item.label }))}
               />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="video_model" label="视频 Model">
+            <Form.Item name="video_model" label={isZh ? "视频模型" : "Video model"}>
               <Select
                 showSearch
                 options={videoModels.map((item) => ({ value: item, label: item }))}
-                placeholder="选择视频模型"
+                placeholder={isZh ? "选择视频模型" : "Select a video model"}
               />
             </Form.Item>
           </Col>
@@ -377,11 +381,11 @@ export function ConfigurationForm({
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="tts_model" label="TTS Model">
+            <Form.Item name="tts_model" label={isZh ? "TTS 模型" : "TTS model"}>
               <Select
                 showSearch
                 options={ttsModels.map((item) => ({ value: item, label: item }))}
-                placeholder="选择 TTS 模型"
+                placeholder={isZh ? "选择 TTS 模型" : "Select a TTS model"}
               />
             </Form.Item>
           </Col>
@@ -399,8 +403,8 @@ export function ConfigurationForm({
           <Space direction="vertical" size={14} style={{ width: "100%", marginBottom: 20 }}>
             <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
               <Space>
-                <Typography.Text strong>默认全局音色</Typography.Text>
-                {voiceFallback ? <Tag color="gold">回退列表</Tag> : <Tag color="blue">MiniMax 音色目录</Tag>}
+                <Typography.Text strong>{isZh ? "默认全局音色" : "Default voice"}</Typography.Text>
+                {voiceFallback ? <Tag color="gold">{isZh ? "回退列表" : "Fallback list"}</Tag> : <Tag color="blue">{isZh ? "MiniMax 音色目录" : "MiniMax catalog"}</Tag>}
               </Space>
               <Button
                 icon={<SoundOutlined />}
@@ -408,7 +412,7 @@ export function ConfigurationForm({
                 loading={Boolean(previewingVoiceId)}
                 disabled={!watchedVoiceId}
               >
-                试听默认音色
+                {isZh ? "试听默认音色" : "Preview default voice"}
               </Button>
             </Space>
             <Space wrap size={12}>
@@ -417,24 +421,24 @@ export function ConfigurationForm({
                 value={voiceLanguageFilter}
                 style={{ width: 156 }}
                 onChange={setVoiceLanguageFilter}
-                options={[{ value: "all", label: "全部语言" }, ...voiceLanguages.map((language) => ({ value: language, label: language }))]}
+                options={[{ value: "all", label: isZh ? "全部语言" : "All languages" }, ...voiceLanguages.map((language) => ({ value: language, label: language }))]}
               />
               <Select
                 size="small"
                 value={voiceTagFilter}
                 style={{ width: 168 }}
                 onChange={setVoiceTagFilter}
-                options={[{ value: "all", label: "全部风格" }, ...voiceTags.map((tag) => ({ value: tag, label: tag }))]}
+                options={[{ value: "all", label: isZh ? "全部风格" : "All styles" }, ...voiceTags.map((tag) => ({ value: tag, label: tag }))]}
               />
             </Space>
-            <Form.Item name="tts_default_voice" label="默认音色">
+            <Form.Item name="tts_default_voice" label={isZh ? "默认音色" : "Default voice"}>
               <Select
                 showSearch
                 loading={voiceLoading}
                 optionFilterProp="label"
-                placeholder="选择默认旁白音色"
+                placeholder={isZh ? "选择默认旁白音色" : "Select the default narration voice"}
                 options={groupedVoiceOptions}
-                notFoundContent={voiceLoading ? "音色加载中..." : "当前筛选下没有可用音色"}
+                notFoundContent={voiceLoading ? (isZh ? "音色加载中..." : "Loading voices...") : (isZh ? "当前筛选下没有可用音色" : "No voice found for the current filters")}
               />
             </Form.Item>
             {selectedVoice ? (
@@ -446,14 +450,14 @@ export function ConfigurationForm({
                   ))}
                 </Space>
                 <Typography.Text type="secondary">
-                  {selectedVoice.description || "这个音色会作为新任务的默认旁白音色。"}
+                  {selectedVoice.description || (isZh ? "这个音色会作为新任务的默认旁白音色。" : "This voice will be used as the default narration voice for new projects.")}
                 </Typography.Text>
               </Space>
             ) : null}
           </Space>
         ) : (
-          <Form.Item name="tts_default_voice" label="默认 voice_id">
-            <Input placeholder="当前 TTS provider 不支持内置音色目录，请手动输入 voice_id" />
+          <Form.Item name="tts_default_voice" label={isZh ? "默认 voice_id" : "Default voice_id"}>
+            <Input placeholder={isZh ? "当前 TTS provider 不支持内置音色目录，请手动输入 voice_id" : "The current TTS provider does not support a built-in voice catalog. Enter a voice_id manually."} />
           </Form.Item>
         )}
 
