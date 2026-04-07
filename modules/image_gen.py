@@ -18,6 +18,7 @@ import os
 import asyncio
 import base64
 import concurrent.futures
+import time
 import requests
 from pathlib import Path
 from typing import Optional
@@ -37,6 +38,9 @@ from modules.llm import Scene
 # 会话级模型黑名单（进程级单例，重启自动清空）
 # ============================================================
 _FAILED_MODELS: set[str] = set()
+_MINIMAX_REQUEST_TIMEOUT = (20, 300)
+_MINIMAX_DOWNLOAD_TIMEOUT = (20, 120)
+_MINIMAX_MAX_RETRIES = 3
 
 
 def _mark_model_failed(model_name: str, reason: str, verbose: bool = False) -> None:
@@ -119,12 +123,51 @@ def _build_minimax_subject_reference(reference_images: Optional[list[str]], verb
     return refs
 
 
+def _request_with_retries(
+    method: str,
+    url: str,
+    *,
+    timeout: tuple[int, int] | int,
+    verbose: bool = False,
+    retry_label: str = "request",
+    **kwargs,
+) -> requests.Response:
+    last_error: Exception | None = None
+
+    for attempt in range(1, _MINIMAX_MAX_RETRIES + 1):
+        try:
+            response = requests.request(method, url, timeout=timeout, **kwargs)
+            if response.status_code in {429, 500, 502, 503, 504}:
+                raise RuntimeError(f"{retry_label} temporary failure (HTTP {response.status_code})")
+            return response
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, RuntimeError) as exc:
+            last_error = exc
+            if attempt >= _MINIMAX_MAX_RETRIES:
+                break
+            sleep_seconds = min(2 ** (attempt - 1), 8)
+            if verbose:
+                print(
+                    f"[ImageGen] {retry_label} 第 {attempt} 次失败: {exc}. "
+                    f"{sleep_seconds}s 后重试..."
+                )
+            time.sleep(sleep_seconds)
+
+    raise RuntimeError(
+        f"{retry_label} 连续 {_MINIMAX_MAX_RETRIES} 次失败: {last_error}"
+    )
+
+
 def _extract_minimax_image_bytes(response_json: dict) -> bytes:
     data = response_json.get("data")
     if isinstance(data, dict):
         image_urls = data.get("image_urls") or []
         if image_urls:
-            download = requests.get(image_urls[0], timeout=60)
+            download = _request_with_retries(
+                "get",
+                image_urls[0],
+                timeout=_MINIMAX_DOWNLOAD_TIMEOUT,
+                retry_label="MiniMax 图片下载",
+            )
             download.raise_for_status()
             return download.content
 
@@ -144,7 +187,12 @@ def _extract_minimax_image_bytes(response_json: dict) -> bytes:
             return base64.b64decode(b64)
         url = item.get("url") or item.get("image_url")
         if url:
-            download = requests.get(url, timeout=60)
+            download = _request_with_retries(
+                "get",
+                url,
+                timeout=_MINIMAX_DOWNLOAD_TIMEOUT,
+                retry_label="MiniMax 图片下载",
+            )
             download.raise_for_status()
             return download.content
 
@@ -192,11 +240,14 @@ def _generate_keyframe_minimax_sync(
         "Content-Type": "application/json",
     }
 
-    response = requests.post(
+    response = _request_with_retries(
+        "post",
         "https://api.minimaxi.com/v1/image_generation",
         json=payload,
         headers=headers,
-        timeout=120,
+        timeout=_MINIMAX_REQUEST_TIMEOUT,
+        verbose=verbose,
+        retry_label=f"MiniMax 生图 Scene {scene.scene_id}",
     )
 
     if response.status_code >= 400:
@@ -581,7 +632,14 @@ async def generate_all_keyframes(
             if cid is not None:
                 char_map[cid] = char
 
-    semaphore = asyncio.Semaphore(max_concurrent)
+    effective_concurrency = max_concurrent
+    provider = _resolve_image_provider(config or get_config())
+    if provider == "minimax":
+        effective_concurrency = 1
+        if verbose and max_concurrent != effective_concurrency:
+            print(f"[ImageGen] MiniMax provider 已自动降级并发到 {effective_concurrency}，避免请求超时")
+
+    semaphore = asyncio.Semaphore(effective_concurrency)
     results = {}
 
     async def _generate_with_semaphore(scene: Scene):
