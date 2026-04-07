@@ -184,6 +184,7 @@ export interface ConnectorStatus {
 export interface SystemSetup {
   onboarding_required: boolean;
   config_path: string;
+  config_exists: boolean;
   missing_requirements: Array<{
     key: string;
     label: string;

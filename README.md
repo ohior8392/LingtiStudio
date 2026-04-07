@@ -7,6 +7,18 @@ Lingti means **greyhound** in Chinese, the fastest dog.
 
 ---
 
+## Screenshots
+
+### Home
+
+![LingtiVideo home page](./screenshots/index_page.png)
+
+### Video Generation Workspace
+
+![LingtiVideo video generation page](./screenshots/video_gen_page.png)
+
+---
+
 ## What It Is
 
 LingtiVideo is an open-source AI video workflow for local use.
@@ -79,7 +91,7 @@ ffmpeg -version
 ### 2. Install
 
 ```bash
-git clone https://github.com/your-org/LingtiVideo.git
+git clone https://github.com/ruilisi/LingtiVideo.git
 cd LingtiVideo
 
 python3 -m venv .venv

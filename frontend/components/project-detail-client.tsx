@@ -39,6 +39,7 @@ import {
   getDownloadDraftUrl,
   getDownloadVideoUrl,
   getProject,
+  isSetupRequiredError,
   listProjectLogs,
   runProjectAction,
   updateProjectTitle
@@ -245,7 +246,11 @@ export function ProjectDetailClient({
       messageApi.success("操作已提交");
       await loadProject();
     } catch (error) {
-      messageApi.error((error as Error).message);
+      if (isSetupRequiredError(error)) {
+        messageApi.warning("当前配置不完整，已经为你打开 Setup 配置窗口。");
+      } else {
+        messageApi.error((error as Error).message);
+      }
     } finally {
       setBusyAction(undefined);
     }

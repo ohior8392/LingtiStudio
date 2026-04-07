@@ -21,6 +21,23 @@ export function SetupOnboarding() {
     void refreshSetup().catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    function handleOpen(event: Event) {
+      const nextSetup = (event as CustomEvent<SystemSetup | null>).detail;
+      if (nextSetup) {
+        setSetup(nextSetup);
+        setOpen(true);
+        return;
+      }
+      void refreshSetup().catch(() => undefined);
+    }
+
+    window.addEventListener("lingti:open-setup", handleOpen as EventListener);
+    return () => {
+      window.removeEventListener("lingti:open-setup", handleOpen as EventListener);
+    };
+  }, []);
+
   return (
     <Modal
       open={open}
@@ -33,7 +50,7 @@ export function SetupOnboarding() {
     >
       <Space direction="vertical" size={18} style={{ width: "100%" }}>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          在开始生成视频前，先完成最小可用配置。你可以选择默认 provider、模型，并把配置直接写入本地 `configs/config.yaml`。
+          在开始生成视频前，先完成最小可用配置。你可以选择默认 provider、模型，并把配置直接写入本地 `configs/config.yaml`。如果本地还没有这个文件，这里保存后会自动创建。
         </Typography.Paragraph>
         {setup?.missing_requirements?.length ? (
           <Alert

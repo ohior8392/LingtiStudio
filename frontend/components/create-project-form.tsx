@@ -20,7 +20,7 @@ import {
 import { CustomerServiceOutlined, InboxOutlined, RocketOutlined, SoundOutlined, UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 
-import { createProject, getConnectorStatus, listTtsVoices, previewTtsVoice, uploadReference } from "@/lib/api";
+import { createProject, getConnectorStatus, isSetupRequiredError, listTtsVoices, previewTtsVoice, uploadReference } from "@/lib/api";
 import type { ConnectorStatus, VoiceOption } from "@/lib/types";
 
 interface Props {
@@ -220,7 +220,11 @@ export function CreateProjectForm({ onCreated, variant = "studio" }: Props) {
       setUploadedFiles([]);
       setFileList([]);
     } catch (error) {
-      messageApi.error((error as Error).message);
+      if (isSetupRequiredError(error)) {
+        messageApi.warning("当前配置不完整，已经为你打开 Setup 配置窗口。");
+      } else {
+        messageApi.error((error as Error).message);
+      }
     } finally {
       setSubmitting(false);
     }

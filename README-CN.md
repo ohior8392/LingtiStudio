@@ -7,6 +7,18 @@ Lingti 在中文里是“灵缇”，也就是速度极快的灰狗。
 
 ---
 
+## 截图
+
+### 首页
+
+![LingtiVideo 首页](./screenshots/index_page.png)
+
+### 视频生成工作台
+
+![LingtiVideo 视频生成页](./screenshots/video_gen_page.png)
+
+---
+
 ## 项目简介
 
 LingtiVideo 是一个适合本地运行的开源 AI 视频工作流。
@@ -81,7 +93,7 @@ ffmpeg -version
 ### 2. 安装
 
 ```bash
-git clone https://github.com/your-org/LingtiVideo.git
+git clone https://github.com/ruilisi/LingtiVideo.git
 cd LingtiVideo
 
 python3 -m venv .venv

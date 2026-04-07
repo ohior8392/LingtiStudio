@@ -512,6 +512,11 @@ def _get_config_path() -> Optional[Path]:
     return default
 
 
+def _config_file_exists() -> bool:
+    config_path = _get_config_path()
+    return bool(config_path and config_path.exists())
+
+
 def _write_config_updates(updates: dict) -> None:
     """
     将扁平化的 key=value 更新写入 config.yaml。
@@ -562,14 +567,18 @@ def _provider_option(options: list[dict[str, Any]], value: str) -> Optional[dict
 
 def _is_llm_configured(config: PilipiliConfig) -> bool:
     provider = config.llm.default_provider
+    active_llm = get_active_llm_config(config)
+    if not active_llm.model:
+        return False
     if not _llm_provider_requires_api_key(provider):
         return True
-    active_llm = get_active_llm_config(config)
     return bool(active_llm.api_key)
 
 
 def _is_image_configured(config: PilipiliConfig) -> bool:
     provider = getattr(config.image_gen, "provider", "nano_banana")
+    if not getattr(config.image_gen, "model", ""):
+        return False
     if provider == "minimax":
         return bool(config.image_gen.api_key or getattr(config.llm.minimax, "api_key", ""))
     return bool(config.image_gen.api_key)
@@ -577,6 +586,8 @@ def _is_image_configured(config: PilipiliConfig) -> bool:
 
 def _is_tts_configured(config: PilipiliConfig) -> bool:
     provider = getattr(config.tts, "default_provider", "minimax")
+    if not getattr(config.tts, "model", ""):
+        return False
     if provider == "minimax":
         return bool(config.tts.api_key or getattr(config.llm.minimax, "api_key", ""))
     return bool(config.tts.api_key)
@@ -584,6 +595,9 @@ def _is_tts_configured(config: PilipiliConfig) -> bool:
 
 def _is_video_configured(config: PilipiliConfig) -> bool:
     provider = config.video_gen.default_provider
+    active_video = getattr(config.video_gen, provider, config.video_gen.kling)
+    if not getattr(active_video, "model", ""):
+        return False
     if provider == "seedance":
         return bool(config.video_gen.seedance.api_key)
     return bool(config.video_gen.kling.api_key and config.video_gen.kling.api_secret)
@@ -593,31 +607,42 @@ def _tts_voice_catalog_supported(config: PilipiliConfig) -> bool:
     return getattr(config.tts, "default_provider", "minimax") == "minimax"
 
 
-def _build_missing_requirements(config: PilipiliConfig) -> list[dict[str, str]]:
+def _build_missing_requirements(
+    config: PilipiliConfig,
+    required_keys: Optional[set[str]] = None,
+) -> list[dict[str, str]]:
     missing: list[dict[str, str]] = []
-    if not _is_llm_configured(config):
+    required = required_keys or {"config", "llm", "image", "tts", "video"}
+
+    if "config" in required and not _config_file_exists():
+        missing.append({
+            "key": "config",
+            "label": "Config",
+            "message": "本地 configs/config.yaml 尚未创建，请先在网页弹窗里保存一次配置。",
+        })
+    if "llm" in required and not _is_llm_configured(config):
         missing.append({
             "key": "llm",
             "label": "LLM",
-            "message": f"默认 LLM provider {config.llm.default_provider} 还没有可用的 API Key。",
+            "message": f"默认 LLM provider {config.llm.default_provider} 还没有完整配置，请确认已选择 model 并填写可用的 API Key。",
         })
-    if not _is_image_configured(config):
+    if "image" in required and not _is_image_configured(config):
         missing.append({
             "key": "image",
             "label": "Image",
-            "message": f"图片 provider {config.image_gen.provider} 还没有可用的 API Key。",
+            "message": f"图片 provider {config.image_gen.provider} 还没有完整配置，请确认已选择 model 并填写可用的 API Key。",
         })
-    if not _is_tts_configured(config):
+    if "tts" in required and not _is_tts_configured(config):
         missing.append({
             "key": "tts",
             "label": "TTS",
-            "message": f"TTS provider {config.tts.default_provider} 还没有可用的 API Key。",
+            "message": f"TTS provider {config.tts.default_provider} 还没有完整配置，请确认已选择 model 并填写可用的 API Key。",
         })
-    if not _is_video_configured(config):
+    if "video" in required and not _is_video_configured(config):
         missing.append({
             "key": "video",
             "label": "Video",
-            "message": f"默认视频 provider {config.video_gen.default_provider} 还没有完整配置。",
+            "message": f"默认视频 provider {config.video_gen.default_provider} 还没有完整配置，请确认已选择 model 并填写所需凭证。",
         })
     return missing
 
@@ -631,6 +656,7 @@ def _build_setup_payload(config: Optional[PilipiliConfig] = None) -> dict[str, A
     return {
         "onboarding_required": bool(missing),
         "config_path": str(_get_config_path()),
+        "config_exists": _config_file_exists(),
         "missing_requirements": missing,
         "current": {
             "llm_provider": config.llm.default_provider,
@@ -653,6 +679,22 @@ def _build_setup_payload(config: Optional[PilipiliConfig] = None) -> dict[str, A
             "tts_providers": TTS_PROVIDER_OPTIONS,
         },
     }
+
+
+def _raise_setup_required(required_keys: Optional[set[str]] = None, message: Optional[str] = None) -> None:
+    config = get_config()
+    missing = _build_missing_requirements(config, required_keys=required_keys)
+    if not missing:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": "setup_required",
+            "message": message or "当前配置不完整，请先完成网页里的 Setup 配置后再继续。",
+            "setup": _build_setup_payload(config),
+            "missing_requirements": missing,
+        },
+    )
 
 
 def _load_project_script_dict(project_id: str) -> Optional[dict]:
@@ -1195,6 +1237,7 @@ async def get_tts_voices(
     language: Optional[str] = Query(None),
 ):
     config = get_config()
+    _raise_setup_required({"config", "tts"}, "当前 TTS 配置不完整，请先完成 Setup 后再加载音色目录。")
     if not _tts_voice_catalog_supported(config):
         return {
             "provider": config.tts.default_provider,
@@ -1210,6 +1253,7 @@ async def get_tts_voices(
 @app.post("/api/tts/preview")
 async def create_tts_preview(request: TtsPreviewRequest):
     config = get_config()
+    _raise_setup_required({"config", "tts"}, "当前 TTS 配置不完整，请先完成 Setup 后再试听音色。")
     if not _tts_voice_catalog_supported(config):
         raise HTTPException(status_code=400, detail=f"当前 TTS provider {config.tts.default_provider} 不支持内置试听")
     try:
@@ -1233,6 +1277,10 @@ async def get_tts_preview_file(cache_key: str):
 @app.post("/api/projects")
 async def create_project(request: CreateProjectRequest, background_tasks: BackgroundTasks):
     """创建新项目，启动视频生成工作流"""
+    _raise_setup_required(
+        {"config", "llm", "image", "tts", "video"},
+        "当前项目还不能开始生成视频，请先完成 Setup 里的模型和密钥配置。",
+    )
     project_id = str(uuid.uuid4())[:8]
 
     _projects[project_id] = {
@@ -1418,6 +1466,10 @@ async def run_project_action(
     action = request.action
 
     if action == "approve_review":
+        _raise_setup_required(
+            {"config", "image", "tts", "video"},
+            "审核通过前发现当前生成配置不完整，请先完成 Setup 再继续。",
+        )
         if project_id not in _review_events:
             stage = (_projects[project_id].get("status") or {}).get("stage")
             if stage != WorkflowStage.AWAITING_REVIEW.value:
@@ -1478,6 +1530,10 @@ async def run_project_action(
         return {"project_id": project_id, "message": "已驳回当前项目"}
 
     if action == "resume_from_script":
+        _raise_setup_required(
+            {"config", "image", "tts", "video"},
+            "从脚本继续前发现当前生成配置不完整，请先完成 Setup 再继续。",
+        )
         background_tasks.add_task(
             run_resume_from_script_workflow,
             project_id,
@@ -1496,6 +1552,10 @@ async def run_project_action(
         return {"project_id": project_id, "message": "已从脚本恢复，开始继续生成"}
 
     if action == "resume_from_video":
+        _raise_setup_required(
+            {"config", "video"},
+            "从视频阶段继续前发现当前视频配置不完整，请先完成 Setup 再继续。",
+        )
         background_tasks.add_task(
             run_resume_workflow,
             project_id,
@@ -1632,6 +1692,10 @@ async def resume_project(project_id: str, background_tasks: BackgroundTasks,
     断点续传：从已有的 keyframes + audio 文件直接跳到视频生成阶段。
     适用于图片/TTS 已生成但视频生成失败的项目。
     """
+    _raise_setup_required(
+        {"config", "video"},
+        "断点续传前发现当前视频配置不完整，请先完成 Setup 再继续。",
+    )
     config = get_config()
     project_dir = os.path.join(config.local.output_dir, project_id)
     script_path = os.path.join(project_dir, "script.json")
@@ -1670,6 +1734,10 @@ async def resume_project_from_script(
     从已有 script.json 继续生成。
     适用于脚本已生成，但关键帧/TTS/视频阶段中断的项目。
     """
+    _raise_setup_required(
+        {"config", "image", "tts", "video"},
+        "从脚本恢复前发现当前生成配置不完整，请先完成 Setup 再继续。",
+    )
     script_dict = _load_project_script_dict(project_id)
     if not script_dict:
         raise HTTPException(status_code=404, detail=f"项目 {project_id} 不存在或 script.json 缺失")

@@ -71,6 +71,7 @@ export function SettingsClient() {
           message="当前仍有必需配置缺失"
           description={
             <Space direction="vertical" size={4}>
+              {!setup.config_exists ? <span>本地 config.yaml 还不存在，保存配置后会自动创建。</span> : null}
               {setup.missing_requirements.map((item) => (
                 <span key={item.key}>{item.message}</span>
               ))}

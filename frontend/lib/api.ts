@@ -14,6 +14,31 @@ import type {
   VoicePreviewResponse,
 } from "@/lib/types";
 
+export class ApiError extends Error {
+  code?: string;
+  setup?: SystemSetup;
+  detail?: unknown;
+
+  constructor(message: string, options?: { code?: string; setup?: SystemSetup; detail?: unknown }) {
+    super(message);
+    this.name = "ApiError";
+    this.code = options?.code;
+    this.setup = options?.setup;
+    this.detail = options?.detail;
+  }
+}
+
+export function isSetupRequiredError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code === "setup_required";
+}
+
+export function openSetupOnboarding(setup?: SystemSetup | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent("lingti:open-setup", { detail: setup ?? null }));
+}
+
 function getDefaultApiBase() {
   if (typeof window === "undefined") {
     return "http://127.0.0.1:8000";
@@ -64,14 +89,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    let detail = response.statusText;
+    let message = response.statusText;
+    let code: string | undefined;
+    let setup: SystemSetup | undefined;
+    let detailPayload: unknown;
     try {
       const data = await response.json();
-      detail = data.detail || data.message || JSON.stringify(data);
+      detailPayload = data?.detail ?? data;
+      if (typeof detailPayload === "string") {
+        message = detailPayload;
+      } else if (detailPayload && typeof detailPayload === "object") {
+        const detailRecord = detailPayload as Record<string, unknown>;
+        message = String(detailRecord.message || data.message || response.statusText);
+        code = typeof detailRecord.code === "string" ? detailRecord.code : undefined;
+        setup = detailRecord.setup as SystemSetup | undefined;
+      } else {
+        message = data.message || JSON.stringify(data);
+      }
     } catch {
-      detail = await response.text();
+      message = await response.text();
     }
-    throw new Error(detail || `HTTP ${response.status}`);
+    if (code === "setup_required") {
+      openSetupOnboarding(setup);
+    }
+    throw new ApiError(message || `HTTP ${response.status}`, {
+      code,
+      setup,
+      detail: detailPayload,
+    });
   }
 
   if (response.status === 204) {

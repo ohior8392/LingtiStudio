@@ -63,6 +63,7 @@ export default function HomePage() {
           description={
             <Space direction="vertical" size={4}>
               <span>系统已经弹出配置窗口。你也可以进入 Setup 页面继续编辑。</span>
+              {!setup.config_exists ? <span>本地 config.yaml 还不存在，第一次保存配置时会自动创建。</span> : null}
               {setup.missing_requirements.map((item) => (
                 <span key={item.key}>{item.message}</span>
               ))}
