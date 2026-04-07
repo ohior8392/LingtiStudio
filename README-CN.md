@@ -17,16 +17,20 @@ Lingti 在中文里是“灵缇”，也就是速度极快的灰狗。
 
 <table>
   <tr>
-    <td width="50%">
+    <td width="33.33%">
       <img src="./screenshots/index_page.png" alt="LingtiStudio 首页" />
     </td>
-    <td width="50%">
+    <td width="33.33%">
       <img src="./screenshots/video_gen_page.png" alt="LingtiStudio 视频生成页" />
+    </td>
+    <td width="33.33%">
+      <img src="./screenshots/video_done_page.png" alt="LingtiStudio 成片结果页" />
     </td>
   </tr>
   <tr>
     <td align="center"><strong>首页</strong></td>
     <td align="center"><strong>视频生成工作台</strong></td>
+    <td align="center"><strong>成片结果页</strong></td>
   </tr>
 </table>
 

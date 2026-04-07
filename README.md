@@ -17,16 +17,20 @@ It is built for creators who want to go from short videos to longer, multi-scene
 
 <table>
   <tr>
-    <td width="50%">
+    <td width="33.33%">
       <img src="./screenshots/index_page.png" alt="LingtiStudio home page" />
     </td>
-    <td width="50%">
+    <td width="33.33%">
       <img src="./screenshots/video_gen_page.png" alt="LingtiStudio video generation page" />
+    </td>
+    <td width="33.33%">
+      <img src="./screenshots/video_done_page.png" alt="LingtiStudio final output page" />
     </td>
   </tr>
   <tr>
     <td align="center"><strong>Home</strong></td>
     <td align="center"><strong>Video Generation Workspace</strong></td>
+    <td align="center"><strong>Final Output Page</strong></td>
   </tr>
 </table>
 
