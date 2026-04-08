@@ -17,6 +17,29 @@ Lingti 在中文里是“灵缇”，也就是速度极快的灰狗。
 
 ---
 
+## 演示视频
+
+<table>
+  <tr>
+    <td width="320">
+      <a href="https://www.bilibili.com/video/BV1NjDrBnECg/">
+        <img src="./screenshots/cn-video-header.png" alt="LingtiStudio B站视频封面" width="320" />
+      </a>
+    </td>
+    <td>
+      <strong>视频演示：LingtiStudio 开源介绍与效果展示</strong>
+      <br />
+      <br />
+      如果你想先看实际效果、界面流程和生成结果，再决定是否上手，可以直接看这支 B 站视频。
+      <br />
+      <br />
+      <a href="https://www.bilibili.com/video/BV1NjDrBnECg/">点击前往 B站观看</a>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 截图
 
 <table>
