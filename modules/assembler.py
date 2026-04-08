@@ -40,6 +40,16 @@ class AssemblyPlan:
     aspect_ratio: str = "9:16"       # 画面比例：9:16 竖屏 / 16:9 横屏
 
 
+@dataclass
+class AssemblyResult:
+    plain_video_path: str
+    final_video_path: str
+    subtitled_video_path: Optional[str] = None
+    subtitle_file_path: Optional[str] = None
+    subtitles_burned: bool = False
+    subtitle_warning: Optional[str] = None
+
+
 # Windows 兼容的 H.264 编码参数
 # pix_fmt yuv420p + profile high + level 4.1 确保 Windows 自带播放器可播放
 H264_COMPAT_ARGS = [
@@ -60,7 +70,7 @@ H264_COMPAT_ARGS = [
 def assemble_video(
     plan: AssemblyPlan,
     verbose: bool = False,
-) -> str:
+) -> AssemblyResult:
     """
     执行完整的视频组装流程
 
@@ -135,20 +145,31 @@ def assemble_video(
     )
 
     # Step 5: 烧录字幕
-    if srt_path and os.path.exists(srt_path):
+    subtitle_copy = None
+    subtitled_output = None
+    subtitles_burned = False
+    subtitle_warning = None
+
+    if plan.add_subtitles and srt_path and os.path.exists(srt_path):
         if _ffmpeg_supports_subtitles_filter():
+            subtitled_output = _subtitled_output_path(plan.output_path)
+            shutil.copy2(merged_with_audio, plan.output_path)
             _burn_subtitles(
                 video_path=merged_with_audio,
                 srt_path=srt_path,
-                output_path=plan.output_path,
+                output_path=subtitled_output,
                 style=plan.subtitle_style,
                 verbose=verbose,
                 aspect_ratio=plan.aspect_ratio,
             )
+            subtitle_copy = os.path.splitext(plan.output_path)[0] + ".srt"
+            shutil.copy2(srt_path, subtitle_copy)
+            subtitles_burned = True
         else:
             shutil.copy2(merged_with_audio, plan.output_path)
             subtitle_copy = os.path.splitext(plan.output_path)[0] + ".srt"
             shutil.copy2(srt_path, subtitle_copy)
+            subtitle_warning = "当前 FFmpeg 未启用 subtitles/libass，已输出无字幕版 MP4 和单独 SRT。"
             if verbose:
                 print("[Assembler] 当前 FFmpeg 未启用 subtitles/libass，已回退为无烧录字幕成片")
                 print(f"[Assembler] SRT 字幕已保留: {subtitle_copy}")
@@ -159,7 +180,14 @@ def assemble_video(
     if verbose:
         print(f"[Assembler] 组装完成: {plan.output_path}")
 
-    return plan.output_path
+    return AssemblyResult(
+        plain_video_path=plan.output_path,
+        final_video_path=subtitled_output or plan.output_path,
+        subtitled_video_path=subtitled_output,
+        subtitle_file_path=subtitle_copy,
+        subtitles_burned=subtitles_burned,
+        subtitle_warning=subtitle_warning,
+    )
 
 
 # ============================================================
@@ -192,6 +220,11 @@ def _clean_temp_files(temp_dir: str, verbose: bool = False) -> None:
             os.remove(fp)
             if verbose:
                 print(f"[Assembler] 清理旧临时文件: {f}")
+
+
+def _subtitled_output_path(output_path: str) -> str:
+    stem, ext = os.path.splitext(output_path)
+    return f"{stem}.subtitled{ext}"
 
 
 @lru_cache(maxsize=1)

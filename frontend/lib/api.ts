@@ -388,8 +388,8 @@ export async function createProjectFromAnalysis(
   }>;
 }
 
-export function getDownloadVideoUrl(projectId: string) {
-  return `${getApiBase()}/api/projects/${projectId}/download/video`;
+export function getDownloadVideoUrl(projectId: string, variant: "final" | "plain" | "subtitled" = "final") {
+  return `${getApiBase()}/api/projects/${projectId}/download/video?variant=${variant}`;
 }
 
 export function getDownloadDraftUrl(projectId: string) {

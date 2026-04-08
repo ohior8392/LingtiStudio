@@ -538,9 +538,14 @@ export function ProjectDetailClient({
           </Button>
           {isCompleted ? (
             <>
-              <Button icon={<DownloadOutlined />} href={getDownloadVideoUrl(projectId)} target="_blank">
-                {isZh ? "下载视频" : "Download video"}
+              <Button icon={<DownloadOutlined />} href={getDownloadVideoUrl(projectId, "plain")} target="_blank">
+                {isZh ? "下载无字幕版" : "Download plain version"}
               </Button>
+              {project?.result?.subtitled_video ? (
+                <Button icon={<DownloadOutlined />} href={getDownloadVideoUrl(projectId, "subtitled")} target="_blank">
+                  {isZh ? "下载带字幕版" : "Download subtitled version"}
+                </Button>
+              ) : null}
               <Button href={getDownloadDraftUrl(projectId)} target="_blank">
                 {isZh ? "下载草稿" : "Download draft"}
               </Button>
@@ -767,6 +772,18 @@ export function ProjectDetailClient({
             <Card className="lingti-card" loading={loading} title={isZh ? "输出与资产" : "Output and Assets"}>
               {isCompleted && project?.result?.final_video ? (
                 <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                  {project.result.subtitle_warning ? (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message={isZh ? "当前环境未生成硬字幕版视频" : "No hard-subtitle version was generated in this environment"}
+                      description={
+                        isZh
+                          ? "你的 FFmpeg 环境缺少字幕烧录能力，所以当前只生成了无字幕版 MP4 和单独的 SRT 字幕文件。"
+                          : "Your FFmpeg environment does not provide subtitle burn-in support, so only a plain MP4 and a separate SRT file were generated."
+                      }
+                    />
+                  ) : null}
                   <video
                     controls
                     preload="metadata"
@@ -774,8 +791,14 @@ export function ProjectDetailClient({
                     style={{ width: "100%", borderRadius: 18, background: "#110808" }}
                   />
                   <Descriptions column={1} size="small" bordered>
-                    <Descriptions.Item label={isZh ? "视频文件" : "Video file"}>
+                    <Descriptions.Item label={isZh ? "默认视频文件" : "Default video file"}>
                       {project.result.final_video}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={isZh ? "无字幕版" : "Plain version"}>
+                      {project.result.plain_video || "-"}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={isZh ? "带字幕版" : "Subtitled version"}>
+                      {project.result.subtitled_video || (isZh ? "当前环境未生成" : "Not generated in this environment")}
                     </Descriptions.Item>
                     <Descriptions.Item label={isZh ? "字幕文件" : "Subtitle file"}>
                       {artifacts?.subtitles[0] || (isZh ? "无" : "None")}

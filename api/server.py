@@ -795,14 +795,26 @@ def _collect_project_artifacts(project_id: str) -> dict[str, Any]:
     audio = _list_artifact_files(os.path.join(project_dir, "audio"), (".mp3", ".wav", ".m4a"))
     clips = _list_artifact_files(os.path.join(project_dir, "clips"), (".mp4", ".mov", ".webm"))
     subtitles = _list_artifact_files(output_dir, (".srt", ".ass"))
+    videos = _list_artifact_files(output_dir, (".mp4",))
 
     final_video = None
     result = _projects.get(project_id, {}).get("result") or {}
     if result.get("final_video") and os.path.exists(result["final_video"]):
         final_video = result["final_video"]
     else:
-        videos = _list_artifact_files(output_dir, (".mp4",))
         final_video = videos[0] if videos else None
+
+    plain_video = result.get("plain_video")
+    if plain_video and not os.path.exists(plain_video):
+        plain_video = None
+    if not plain_video:
+        plain_video = final_video
+
+    subtitled_video = result.get("subtitled_video")
+    if subtitled_video and not os.path.exists(subtitled_video):
+        subtitled_video = None
+    if not subtitled_video:
+        subtitled_video = next((path for path in videos if ".subtitled." in os.path.basename(path)), None)
 
     draft_dir = result.get("draft_dir")
     if draft_dir and not os.path.isdir(draft_dir):
@@ -818,6 +830,8 @@ def _collect_project_artifacts(project_id: str) -> dict[str, Any]:
         "audio": audio,
         "clips": clips,
         "final_video": final_video,
+        "plain_video": plain_video,
+        "subtitled_video": subtitled_video,
         "subtitles": subtitles,
         "draft_dir": draft_dir,
         "has_script": bool(os.path.exists(script_path)),
@@ -1158,7 +1172,7 @@ async def run_workflow(project_id: str, request: CreateProjectRequest):
             aspect_ratio=aspect_ratio,
         )
 
-        await asyncio.to_thread(assemble_video, plan, True)
+        assembly_result = await asyncio.to_thread(assemble_video, plan, True)
 
         # 生成剪映草稿
         draft_dir = os.path.join(output_dir, "jianying_draft")
@@ -1175,7 +1189,12 @@ async def run_workflow(project_id: str, request: CreateProjectRequest):
 
         # 完成
         result = {
-            "final_video": final_video,
+            "final_video": assembly_result.final_video_path,
+            "plain_video": assembly_result.plain_video_path,
+            "subtitled_video": assembly_result.subtitled_video_path,
+            "subtitle_file": assembly_result.subtitle_file_path,
+            "subtitles_burned": assembly_result.subtitles_burned,
+            "subtitle_warning": assembly_result.subtitle_warning,
             "draft_dir": draft_dir,
             "script": script_to_dict(script),
             "total_duration": sum(s.duration for s in script.scenes),
@@ -1879,7 +1898,7 @@ async def run_resume_workflow(project_id: str, video_engine: str = "kling", add_
             add_subtitles=add_subtitles,
             aspect_ratio=aspect_ratio,
         )
-        await asyncio.to_thread(assemble_video, plan, True)
+        assembly_result = await asyncio.to_thread(assemble_video, plan, True)
 
         # 剪映草稿
         draft_dir = os.path.join(output_dir, "jianying_draft")
@@ -1895,7 +1914,12 @@ async def run_resume_workflow(project_id: str, video_engine: str = "kling", add_
         )
 
         result = {
-            "final_video": final_video,
+            "final_video": assembly_result.final_video_path,
+            "plain_video": assembly_result.plain_video_path,
+            "subtitled_video": assembly_result.subtitled_video_path,
+            "subtitle_file": assembly_result.subtitle_file_path,
+            "subtitles_burned": assembly_result.subtitles_burned,
+            "subtitle_warning": assembly_result.subtitle_warning,
             "draft_dir": draft_dir,
             "script": script_dict,
             "total_duration": sum(s.duration for s in script.scenes),
@@ -2042,7 +2066,7 @@ async def run_resume_from_script_workflow(
             add_subtitles=effective_add_subtitles,
             aspect_ratio=aspect_ratio,
         )
-        await asyncio.to_thread(assemble_video, plan, True)
+        assembly_result = await asyncio.to_thread(assemble_video, plan, True)
 
         draft_dir = os.path.join(output_dir, "jianying_draft")
         await asyncio.to_thread(
@@ -2057,7 +2081,12 @@ async def run_resume_from_script_workflow(
         )
 
         result = {
-            "final_video": final_video,
+            "final_video": assembly_result.final_video_path,
+            "plain_video": assembly_result.plain_video_path,
+            "subtitled_video": assembly_result.subtitled_video_path,
+            "subtitle_file": assembly_result.subtitle_file_path,
+            "subtitles_burned": assembly_result.subtitles_burned,
+            "subtitle_warning": assembly_result.subtitle_warning,
             "draft_dir": draft_dir,
             "script": script_dict,
             "total_duration": sum(s.duration for s in script.scenes),
@@ -2136,7 +2165,7 @@ async def run_reassemble_workflow(project_id: str, add_subtitles: bool = True):
             add_subtitles=add_subtitles,
             aspect_ratio=aspect_ratio,
         )
-        await asyncio.to_thread(assemble_video, plan, True)
+        assembly_result = await asyncio.to_thread(assemble_video, plan, True)
 
         draft_dir = os.path.join(output_dir, "jianying_draft")
         await asyncio.to_thread(
@@ -2151,7 +2180,12 @@ async def run_reassemble_workflow(project_id: str, add_subtitles: bool = True):
         )
 
         result = {
-            "final_video": final_video,
+            "final_video": assembly_result.final_video_path,
+            "plain_video": assembly_result.plain_video_path,
+            "subtitled_video": assembly_result.subtitled_video_path,
+            "subtitle_file": assembly_result.subtitle_file_path,
+            "subtitles_burned": assembly_result.subtitles_burned,
+            "subtitle_warning": assembly_result.subtitle_warning,
             "draft_dir": draft_dir,
             "script": script_dict,
             "total_duration": sum(s.duration for s in script.scenes),
@@ -2729,7 +2763,7 @@ import tempfile
 
 
 @app.get("/api/projects/{project_id}/download/video")
-async def download_video(project_id: str):
+async def download_video(project_id: str, variant: str = Query("final", pattern="^(final|plain|subtitled)$")):
     """直接下载成品视频文件"""
     if project_id not in _projects:
         raise HTTPException(status_code=404, detail="项目不存在")
@@ -2738,7 +2772,13 @@ async def download_video(project_id: str):
     if not result:
         raise HTTPException(status_code=400, detail="项目尚未完成")
 
-    video_path = result.get("final_video", "")
+    video_path = ""
+    if variant == "plain":
+        video_path = result.get("plain_video", "") or result.get("final_video", "")
+    elif variant == "subtitled":
+        video_path = result.get("subtitled_video", "")
+    else:
+        video_path = result.get("final_video", "")
     if not video_path or not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail=f"视频文件不存在: {video_path}")
 

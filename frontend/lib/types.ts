@@ -32,6 +32,11 @@ export interface ScriptDraft {
 
 export interface ProjectResult {
   final_video?: string;
+  plain_video?: string;
+  subtitled_video?: string | null;
+  subtitle_file?: string | null;
+  subtitles_burned?: boolean;
+  subtitle_warning?: string | null;
   draft_dir?: string;
   total_duration?: number;
   script?: ScriptDraft;
@@ -74,6 +79,8 @@ export interface ArtifactManifest {
   audio: string[];
   clips: string[];
   final_video?: string | null;
+  plain_video?: string | null;
+  subtitled_video?: string | null;
   subtitles: string[];
   draft_dir?: string | null;
   has_script: boolean;
