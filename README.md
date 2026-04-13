@@ -72,6 +72,7 @@ It is designed to make the full generation chain feel like **one product**, not 
 With LingtiStudio, you can go from a rough idea to a polished deliverable with:
 - script generation
 - human review before expensive generation starts
+- character / scene / prop asset generation and confirmation
 - keyframe image generation
 - TTS voiceover
 - image-to-video generation
@@ -97,6 +98,7 @@ LingtiStudio is built to give you a **production pipeline**.
 
 It focuses on:
 - **reviewability**: inspect and edit scenes before expensive generation begins
+- **asset confirmation**: approve reusable characters, scene looks, and props before full generation
 - **recoverability**: resume from script, video, or assembly instead of starting over
 - **consistency**: keep prompts, voice, aspect ratio, and style aligned across scenes
 - **long-form readiness**: handle multi-scene projects more like a structured workflow than a toy prompt box
@@ -110,11 +112,13 @@ LingtiStudio turns end-to-end AI video generation into a one-click, full-stack w
 
 1. Generate a script from a topic or imported reference analysis
 2. Review and edit scenes before continuing
-3. Generate keyframes for every scene
-4. Generate voiceover for every scene
-5. Turn keyframes into video clips with Kling or Seedance
-6. Assemble the final video with audio, transitions, subtitles, and export artifacts
-7. Export the final MP4, subtitle file, and JianYing / CapCut draft
+3. Generate a reusable asset pack for characters, scene looks, and props
+4. Review and approve those assets before full generation
+5. Generate keyframes for every scene using approved assets as consistency references
+6. Generate voiceover for every scene
+7. Turn keyframes into video clips with MiniMax Video, Kling, or Seedance
+8. Assemble the final video with audio, transitions, subtitles, and export artifacts
+9. Export the final MP4, subtitle file, and JianYing / CapCut draft
 
 This is especially useful when you want the speed of AI generation but still need the control of a real production flow.
 

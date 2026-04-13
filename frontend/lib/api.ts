@@ -1,4 +1,5 @@
 import type {
+  AssetPack,
   AnalysisTask,
   ConnectorStatus,
   CreateProjectPayload,
@@ -207,6 +208,9 @@ export function runProjectAction(
     video_engine?: string;
     add_subtitles?: boolean;
     scenes?: SceneDraft[];
+    asset_pack?: AssetPack;
+    asset_category?: string;
+    asset_id?: string;
   }
 ) {
   return request<{ project_id: string; message: string }>(`/api/projects/${projectId}/actions`, {
@@ -215,7 +219,10 @@ export function runProjectAction(
       action,
       video_engine: options?.video_engine,
       add_subtitles: options?.add_subtitles ?? true,
-      scenes: options?.scenes
+      scenes: options?.scenes,
+      asset_pack: options?.asset_pack,
+      asset_category: options?.asset_category,
+      asset_id: options?.asset_id,
     })
   });
 }

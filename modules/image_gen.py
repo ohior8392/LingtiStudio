@@ -601,6 +601,7 @@ async def generate_all_keyframes(
     output_dir: str,
     reference_images: Optional[list[str]] = None,
     style_reference: Optional[str] = None,
+    style_reference_map: Optional[dict[int, str]] = None,
     config: Optional[PilipiliConfig] = None,
     max_concurrent: int = 3,
     verbose: bool = False,
@@ -646,10 +647,16 @@ async def generate_all_keyframes(
         async with semaphore:
             # 优先使用场景级别的角色参考图
             scene_refs = None
-            if scene.reference_character and os.path.exists(scene.reference_character):
+            if scene.character_refs:
+                refs = [ref for ref in scene.character_refs if ref and os.path.exists(ref)]
+                if refs:
+                    scene_refs = refs
+            elif scene.reference_character and os.path.exists(scene.reference_character):
                 scene_refs = [scene.reference_character]
             elif reference_images:
                 scene_refs = reference_images
+
+            scene_style_reference = (style_reference_map or {}).get(scene.scene_id) or style_reference
 
             # 如果没有参考图，尝试用 appearance_prompt 增强 image_prompt
             enhanced_scene = scene
@@ -671,7 +678,7 @@ async def generate_all_keyframes(
                 scene=enhanced_scene,
                 output_dir=output_dir,
                 reference_images=scene_refs,
-                style_reference=style_reference,
+                style_reference=scene_style_reference,
                 config=config,
                 verbose=verbose,
                 aspect_ratio=aspect_ratio,
@@ -690,6 +697,7 @@ def generate_all_keyframes_sync(
     output_dir: str,
     reference_images: Optional[list[str]] = None,
     style_reference: Optional[str] = None,
+    style_reference_map: Optional[dict[int, str]] = None,
     config: Optional[PilipiliConfig] = None,
     max_concurrent: int = 3,
     verbose: bool = False,
@@ -703,6 +711,7 @@ def generate_all_keyframes_sync(
         output_dir=output_dir,
         reference_images=reference_images,
         style_reference=style_reference,
+        style_reference_map=style_reference_map,
         config=config,
         max_concurrent=max_concurrent,
         verbose=verbose,

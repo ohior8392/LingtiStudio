@@ -44,7 +44,7 @@ from modules.llm import (
     analyze_reference_video_sync,
     ReferenceVideoAnalysis,
 )
-from modules.image_gen import generate_all_keyframes_sync
+from modules.image_gen import generate_all_keyframes_sync, generate_keyframe
 from modules.tts import (
     generate_all_voiceovers_sync,
     update_scene_durations,
@@ -98,6 +98,8 @@ class WorkflowStage(str, Enum):
     IDLE = "idle"
     GENERATING_SCRIPT = "generating_script"
     AWAITING_REVIEW = "awaiting_review"       # 人工审核关卡 ⬅️ 关键
+    GENERATING_ASSETS = "generating_assets"
+    AWAITING_ASSET_REVIEW = "awaiting_asset_review"
     GENERATING_IMAGES = "generating_images"
     GENERATING_AUDIO = "generating_audio"
     GENERATING_VIDEO = "generating_video"
@@ -446,6 +448,9 @@ class ProjectActionRequest(BaseModel):
     video_engine: Optional[str] = "kling"
     add_subtitles: bool = True
     scenes: Optional[list[dict]] = None
+    asset_pack: Optional[dict] = None
+    asset_category: Optional[str] = None
+    asset_id: Optional[str] = None
 
 
 LLM_PROVIDER_OPTIONS = [
@@ -758,6 +763,317 @@ def _persist_project_script(project_id: str, script_dict: dict[str, Any]) -> Non
         json.dump(script_dict, f, ensure_ascii=False, indent=2)
 
 
+def _asset_pack_path(project_id: str) -> str:
+    return os.path.join(_get_project_dir(project_id), "asset_pack.json")
+
+
+def _load_asset_pack(project_id: str) -> Optional[dict[str, Any]]:
+    path = _asset_pack_path(project_id)
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _persist_asset_pack(project_id: str, asset_pack: dict[str, Any]) -> None:
+    path = _asset_pack_path(project_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(asset_pack, f, ensure_ascii=False, indent=2)
+
+
+def _asset_preview_url(project_id: str, category: str, asset_id: str) -> str:
+    return f"/api/projects/{project_id}/assets/{category}/{asset_id}/image"
+
+
+def _serialize_asset_pack(project_id: str, asset_pack: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    if not asset_pack:
+        return None
+    packed = json.loads(json.dumps(asset_pack))
+    for category in ["characters", "scene_looks", "props"]:
+        for entry in packed.get(category, []):
+            entry["preview_url"] = _asset_preview_url(project_id, category, entry["asset_id"])
+    return packed
+
+
+def _extract_props_from_script(script: VideoScript) -> list[dict[str, Any]]:
+    keyword_map = {
+        "phone": "phone",
+        "smartphone": "phone",
+        "laptop": "laptop",
+        "book": "book",
+        "camera": "camera",
+        "microphone": "microphone",
+        "sword": "sword",
+        "umbrella": "umbrella",
+        "bag": "bag",
+        "cup": "cup",
+        "bottle": "bottle",
+        "flower": "flower",
+        "lantern": "lantern",
+        "letter": "letter",
+        "tablet": "tablet",
+        "watch": "watch",
+        "glasses": "glasses",
+    }
+    found: dict[str, dict[str, Any]] = {}
+    for scene in script.scenes:
+        text = f"{scene.image_prompt} {scene.video_prompt}".lower()
+        for needle, label in keyword_map.items():
+            if needle in text and label not in found:
+                found[label] = {
+                    "asset_id": f"prop-{label}",
+                    "name": label.replace("-", " ").title(),
+                    "prompt": f"Studio reference image of a {label}, isolated subject, clean background, highly detailed, consistent design language",
+                    "image_path": None,
+                    "approved": False,
+                    "scene_ids": [scene.scene_id],
+                }
+            elif needle in text and label in found:
+                found[label]["scene_ids"].append(scene.scene_id)
+    return list(found.values())
+
+
+async def _generate_asset_pack(project_id: str, script: VideoScript, config: PilipiliConfig) -> dict[str, Any]:
+    existing = _load_asset_pack(project_id) or {}
+    asset_root = os.path.join(_get_project_dir(project_id), "asset_pack")
+    os.makedirs(asset_root, exist_ok=True)
+
+    character_entries = []
+    for character in script.characters or []:
+        if getattr(character, "character_id", None) in {None, 0}:
+            continue
+        asset_id = f"character-{character.character_id}"
+        previous = next((item for item in existing.get("characters", []) if item.get("asset_id") == asset_id), {})
+        image_path = previous.get("image_path")
+        if not image_path or not os.path.exists(image_path):
+            replacement_image = getattr(character, "replacement_image", None)
+            if replacement_image and os.path.exists(replacement_image):
+                image_path = replacement_image
+            else:
+                fake_scene = Scene(
+                    scene_id=character.character_id,
+                    duration=1,
+                    image_prompt=previous.get("prompt") or (
+                        f"{character.appearance_prompt}. Character reference sheet, consistent outfit, clean neutral background, cinematic portrait"
+                    ),
+                    video_prompt="",
+                    voiceover="",
+                    style_tags=["character_reference"],
+                )
+                image_path = await generate_keyframe(
+                    scene=fake_scene,
+                    output_dir=os.path.join(asset_root, "characters"),
+                    config=config,
+                    verbose=True,
+                    aspect_ratio="3:4",
+                )
+        character_entries.append({
+            "asset_id": asset_id,
+            "name": character.name,
+            "prompt": previous.get("prompt") or f"{character.appearance_prompt}. Character reference sheet, consistent outfit, clean neutral background, cinematic portrait",
+            "image_path": image_path,
+            "approved": previous.get("approved", False),
+            "character_id": character.character_id,
+        })
+
+    scene_entries = []
+    for scene in script.scenes:
+        asset_id = f"scene-{scene.scene_id}"
+        previous = next((item for item in existing.get("scene_looks", []) if item.get("asset_id") == asset_id), {})
+        image_path = previous.get("image_path")
+        if not image_path or not os.path.exists(image_path):
+            fake_scene = Scene(
+                scene_id=scene.scene_id,
+                duration=1,
+                image_prompt=previous.get("prompt") or (
+                    f"{scene.image_prompt}. Focus on environment, location, palette, lighting, and prop layout only. No people."
+                ),
+                video_prompt="",
+                voiceover="",
+                style_tags=["scene_look"],
+            )
+            image_path = await generate_keyframe(
+                scene=fake_scene,
+                output_dir=os.path.join(asset_root, "scene_looks"),
+                config=config,
+                verbose=True,
+                aspect_ratio=script.aspect_ratio or "9:16",
+            )
+        scene_entries.append({
+            "asset_id": asset_id,
+            "name": f"Scene {scene.scene_id}",
+            "prompt": previous.get("prompt") or f"{scene.image_prompt}. Focus on environment, location, palette, lighting, and prop layout only. No people.",
+            "image_path": image_path,
+            "approved": previous.get("approved", False),
+            "scene_id": scene.scene_id,
+        })
+
+    prop_entries = []
+    for prop in _extract_props_from_script(script):
+        previous = next((item for item in existing.get("props", []) if item.get("asset_id") == prop["asset_id"]), {})
+        image_path = previous.get("image_path")
+        if not image_path or not os.path.exists(image_path):
+            fake_scene = Scene(
+                scene_id=len(prop_entries) + 1,
+                duration=1,
+                image_prompt=previous.get("prompt") or prop["prompt"],
+                video_prompt="",
+                voiceover="",
+                style_tags=["prop_reference"],
+            )
+            image_path = await generate_keyframe(
+                scene=fake_scene,
+                output_dir=os.path.join(asset_root, "props"),
+                config=config,
+                verbose=True,
+                aspect_ratio="3:4",
+            )
+        prop_entries.append({
+            **prop,
+            "prompt": previous.get("prompt") or prop["prompt"],
+            "image_path": image_path,
+            "approved": previous.get("approved", False),
+        })
+
+    asset_pack = {
+        "status": "draft",
+        "generated_at": datetime.now().isoformat(),
+        "characters": character_entries,
+        "scene_looks": scene_entries,
+        "props": prop_entries,
+    }
+    _persist_asset_pack(project_id, asset_pack)
+    _projects[project_id]["asset_pack"] = asset_pack
+    save_project_meta(project_id)
+    return asset_pack
+
+
+def _apply_asset_pack_to_script(script: VideoScript, asset_pack: Optional[dict[str, Any]]) -> tuple[VideoScript, dict[int, str]]:
+    if not asset_pack or asset_pack.get("status") != "approved":
+        return script, {}
+
+    from dataclasses import replace as dc_replace
+
+    char_refs = {
+        entry.get("character_id"): entry.get("image_path")
+        for entry in asset_pack.get("characters", [])
+        if entry.get("approved") and entry.get("image_path")
+    }
+    scene_style_refs = {
+        entry.get("scene_id"): entry.get("image_path")
+        for entry in asset_pack.get("scene_looks", [])
+        if entry.get("approved") and entry.get("image_path")
+    }
+
+    updated_scenes = []
+    for scene in script.scenes:
+        refs = list(scene.character_refs or [])
+        for cid in scene.characters_in_scene or []:
+            image_path = char_refs.get(cid)
+            if image_path and image_path not in refs:
+                refs.append(image_path)
+        updated_scenes.append(dc_replace(scene, character_refs=refs or None))
+
+    script.scenes = updated_scenes
+    return script, scene_style_refs
+
+
+def _merge_asset_pack_edits(existing: dict[str, Any], incoming: Optional[dict[str, Any]]) -> dict[str, Any]:
+    if not incoming:
+        return existing
+    merged = json.loads(json.dumps(existing))
+    for category in ["characters", "scene_looks", "props"]:
+        incoming_items = {item.get("asset_id"): item for item in incoming.get(category, []) if item.get("asset_id")}
+        for item in merged.get(category, []):
+            patch = incoming_items.get(item.get("asset_id"))
+            if not patch:
+                continue
+            if "prompt" in patch:
+                item["prompt"] = patch["prompt"]
+            if "approved" in patch:
+                item["approved"] = patch["approved"]
+    return merged
+
+
+def _clear_asset_images(asset_pack: dict[str, Any], category: Optional[str] = None, asset_id: Optional[str] = None) -> None:
+    categories = [category] if category else ["characters", "scene_looks", "props"]
+    for cat in categories:
+        for item in asset_pack.get(cat, []):
+            if asset_id and item.get("asset_id") != asset_id:
+                continue
+            image_path = item.get("image_path")
+            if image_path and os.path.exists(image_path):
+                try:
+                    os.remove(image_path)
+                except OSError:
+                    pass
+            item["image_path"] = None
+            item["approved"] = False
+
+
+async def run_generate_asset_pack_workflow(
+    project_id: str,
+    video_engine: str = "kling",
+    add_subtitles: bool = True,
+    *,
+    force: bool = False,
+    asset_category: Optional[str] = None,
+    asset_id: Optional[str] = None,
+) -> None:
+    _project_logs.setdefault(project_id, [])
+    context_token = _PROJECT_LOG_CONTEXT.set(project_id)
+    await _append_project_log(project_id, f"[Workflow] 项目 {project_id} 已进入资产包生成模式")
+
+    try:
+        config = get_config()
+        script_dict = _load_project_script_dict(project_id)
+        if not script_dict:
+            raise FileNotFoundError(f"项目 {project_id} 的 script.json 不存在")
+
+        script = dict_to_script(script_dict)
+        workflow_request = _merge_workflow_request(_projects.get(project_id, {}).get("workflow_request"), script_dict)
+        workflow_request["video_engine"] = video_engine or workflow_request.get("video_engine") or "kling"
+        workflow_request["add_subtitles"] = add_subtitles
+        _projects[project_id]["workflow_request"] = workflow_request
+
+        await push_status(
+            project_id,
+            WorkflowStage.GENERATING_ASSETS,
+            22,
+            "正在生成资产包：人物、场景与道具..."
+        )
+
+        existing = _load_asset_pack(project_id)
+        if existing:
+            if force or asset_category or asset_id:
+                _clear_asset_images(existing, category=asset_category, asset_id=asset_id)
+                _persist_asset_pack(project_id, existing)
+                _projects[project_id]["asset_pack"] = existing
+
+        asset_pack = await _generate_asset_pack(project_id, script, config)
+        await push_status(
+            project_id,
+            WorkflowStage.AWAITING_ASSET_REVIEW,
+            24,
+            "资产包已生成，请确认人物、场景和道具资产后继续",
+            asset_pack=_serialize_asset_pack(project_id, asset_pack),
+            requires_action=True,
+            action_type="review_assets",
+        )
+    except Exception as e:
+        import traceback
+        await push_status(
+            project_id,
+            WorkflowStage.FAILED,
+            0,
+            f"资产包生成失败: {type(e).__name__}: {e}",
+            error=traceback.format_exc(),
+        )
+    finally:
+        _PROJECT_LOG_CONTEXT.reset(context_token)
+
+
 def _remove_project_state(project_id: str) -> None:
     _projects.pop(project_id, None)
     _project_logs.pop(project_id, None)
@@ -866,6 +1182,25 @@ def _build_project_actions(project_id: str, project: Optional[dict] = None) -> l
             },
         ])
 
+    if stage == WorkflowStage.AWAITING_ASSET_REVIEW.value:
+        actions.extend([
+            {
+                "key": "save_asset_draft",
+                "label": "保存资产草稿",
+                "kind": "default",
+            },
+            {
+                "key": "approve_assets",
+                "label": "确认资产并继续",
+                "kind": "primary",
+            },
+            {
+                "key": "regenerate_all_assets",
+                "label": "重新生成全部资产",
+                "kind": "default",
+            },
+        ])
+
     if stage not in {
         WorkflowStage.GENERATING_IMAGES.value,
         WorkflowStage.GENERATING_AUDIO.value,
@@ -904,6 +1239,12 @@ def _serialize_project(project_id: str) -> dict:
             project["script"] = script_dict
             _projects[project_id]["script"] = script_dict
 
+    if not project.get("asset_pack"):
+        asset_pack = _load_asset_pack(project_id)
+        if asset_pack:
+            project["asset_pack"] = asset_pack
+            _projects[project_id]["asset_pack"] = asset_pack
+
     artifacts = _collect_project_artifacts(project_id)
     stage = project.get("status", {}).get("stage")
     has_script = bool(project.get("script")) or artifacts["has_script"]
@@ -934,6 +1275,7 @@ def _serialize_project(project_id: str) -> dict:
         WorkflowStage.ASSEMBLING.value,
     }
     project["artifacts"] = artifacts
+    project["asset_pack"] = _serialize_asset_pack(project_id, project.get("asset_pack"))
     project["actions"] = _build_project_actions(project_id, project)
     return project
 
@@ -1081,137 +1423,25 @@ async def run_workflow(project_id: str, request: CreateProjectRequest):
                         orig.get("image_prompt", ""), scene.image_prompt
                     )
 
-        # ── 阶段 3：并行生成关键帧 + TTS ─────────────────────
-        await push_status(project_id, WorkflowStage.GENERATING_IMAGES, 25,
-                          f"开始并行生成 {len(script.scenes)} 个分镜关键帧和配音...")
-
-        images_dir = os.path.join(project_dir, "keyframes")
-        audio_dir = os.path.join(project_dir, "audio")
-
-        # 并行执行生图和 TTS
-        # 确定 aspect_ratio：优先用请求参数，其次用配置默认值
-        aspect_ratio = script.aspect_ratio or selected_aspect_ratio
-        global_style_prompt = request.global_style_prompt or ""
-        # 如果是对标分析模式，从分析结果提取风格提示词
-        if not global_style_prompt and script.style:
-            global_style_prompt = script.style
-
-        keyframe_task = asyncio.to_thread(
-            generate_all_keyframes_sync,
-            scenes=script.scenes,
-            output_dir=images_dir,
-            reference_images=request.reference_images or [],
-            characters=script.characters or [],
-            config=config,
-            verbose=True,
-            aspect_ratio=aspect_ratio,
-            global_style_prompt=global_style_prompt,
-        )
-
-        audio_task = asyncio.to_thread(
-            generate_all_voiceovers_sync,
-            scenes=script.scenes,
-            output_dir=audio_dir,
-            voice_id=request.voice_id,
-            characters=script.characters or [],
-            config=config,
-            max_concurrent=2,  # 降低并发数，减少 MiniMax RPM 限速
-            verbose=True,
-        )
-
-        await push_status(project_id, WorkflowStage.GENERATING_AUDIO, 30,
-                          "并行生成关键帧图片和配音中...")
-
-        keyframe_paths, voiceover_results = await asyncio.gather(keyframe_task, audio_task)
-
-        # 根据 TTS 时长更新分镜 duration
-        script.scenes = update_scene_durations(script.scenes, voiceover_results)
-        audio_paths = {sid: path for sid, (path, _) in voiceover_results.items()}
-
-        await push_status(project_id, WorkflowStage.GENERATING_IMAGES, 50,
-                          "关键帧和配音生成完成，开始生成视频片段...",
-                          keyframes=list(keyframe_paths.values()))
-
-        # ── 阶段 4：图生视频 ──────────────────────────────────
-        video_engine = request.video_engine or "kling"
-        await push_status(project_id, WorkflowStage.GENERATING_VIDEO, 55,
-                          f"使用 {video_engine.upper()} 生成视频片段...")
-
-        clips_dir = os.path.join(project_dir, "clips")
-
-        engine = None if video_engine == "auto" else video_engine
-        auto_route = (video_engine == "auto")
-
-        video_clips = await asyncio.to_thread(
-            generate_all_video_clips_sync,
-            scenes=script.scenes,
-            keyframe_paths=keyframe_paths,
-            output_dir=clips_dir,
-            engine=engine,
-            auto_route=auto_route,
-            config=config,
-            verbose=True,
-            resolution=request.resolution or "1080p",
-            aspect_ratio=aspect_ratio,
-        )
-
-        await push_status(project_id, WorkflowStage.ASSEMBLING, 80,
-                          "视频片段生成完成，开始组装最终成片...")
-
-        # ── 阶段 5：组装拼接 ──────────────────────────
-        output_dir = os.path.join(project_dir, "output")
-        temp_dir = os.path.join(project_dir, "temp")
-        # 清理文件名中的非法字符（Windows 兼容）
-        safe_title = "".join(c for c in script.title if c not in r'\/:*?"<>|').strip() or "output"
-        final_video = os.path.join(output_dir, f"{safe_title}.mp4")
-        os.makedirs(output_dir, exist_ok=True)
-
-        plan = AssemblyPlan(
-            scenes=script.scenes,
-            video_clips=video_clips,
-            audio_clips=audio_paths,
-            output_path=final_video,
-            temp_dir=temp_dir,
-            add_subtitles=request.add_subtitles,
-            aspect_ratio=aspect_ratio,
-        )
-
-        assembly_result = await asyncio.to_thread(assemble_video, plan, True)
-
-        # 生成剪映草稿
-        draft_dir = os.path.join(output_dir, "jianying_draft")
-        await asyncio.to_thread(
-            generate_jianying_draft,
-            script=script,
-            video_clips=video_clips,
-            audio_clips=audio_paths,
-            output_dir=draft_dir,
-            project_name=safe_title,
-            verbose=True,
-            aspect_ratio=aspect_ratio,
-        )
-
-        # 完成
-        result = {
-            "final_video": assembly_result.final_video_path,
-            "plain_video": assembly_result.plain_video_path,
-            "subtitled_video": assembly_result.subtitled_video_path,
-            "subtitle_file": assembly_result.subtitle_file_path,
-            "subtitles_burned": assembly_result.subtitles_burned,
-            "subtitle_warning": assembly_result.subtitle_warning,
-            "draft_dir": draft_dir,
-            "script": script_to_dict(script),
-            "total_duration": sum(s.duration for s in script.scenes),
-        }
-
-        _projects[project_id]["result"] = result
-
         await push_status(
-            project_id, WorkflowStage.COMPLETED, 100,
-            f"🎉 视频生成完成！《{script.title}》",
-            result=result
+            project_id,
+            WorkflowStage.GENERATING_ASSETS,
+            22,
+            f"开始生成资产包：人物、场景与道具，共 {len(script.scenes)} 个分镜"
         )
-        save_project_meta(project_id)  # 完成时持久化最终状态
+
+        asset_pack = await _generate_asset_pack(project_id, script, config)
+        await push_status(
+            project_id,
+            WorkflowStage.AWAITING_ASSET_REVIEW,
+            24,
+            "资产包已生成，请确认人物、场景和道具资产后继续",
+            asset_pack=_serialize_asset_pack(project_id, asset_pack),
+            requires_action=True,
+            action_type="review_assets",
+            script=script_to_dict(script),
+        )
+        return
 
     except Exception as e:
         import traceback
@@ -1379,6 +1609,30 @@ async def get_project_artifacts(project_id: str):
     return _collect_project_artifacts(project_id)
 
 
+@app.get("/api/projects/{project_id}/assets/{category}/{asset_id}/image")
+async def get_project_asset_image(project_id: str, category: str, asset_id: str):
+    if project_id not in _projects:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    asset_pack = _load_asset_pack(project_id)
+    if not asset_pack:
+        raise HTTPException(status_code=404, detail="资产包不存在")
+    items = asset_pack.get(category, [])
+    asset = next((item for item in items if item.get("asset_id") == asset_id), None)
+    if not asset:
+        raise HTTPException(status_code=404, detail="资产不存在")
+    image_path = asset.get("image_path")
+    if not image_path or not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="资产图片不存在")
+    suffix = Path(image_path).suffix.lower()
+    media_type = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }.get(suffix, "application/octet-stream")
+    return FileResponse(path=image_path, media_type=media_type)
+
+
 @app.get("/api/projects")
 async def list_projects():
     """获取所有项目列表"""
@@ -1437,9 +1691,9 @@ async def submit_review(project_id: str, decision: ReviewDecisionRequest):
             _projects[project_id]["status"] = {
                 "type": "status",
                 "project_id": project_id,
-                "stage": WorkflowStage.GENERATING_IMAGES.value,
-                "progress": 20,
-                "message": "审核已通过，已从审核检查点恢复继续生成",
+                "stage": WorkflowStage.GENERATING_ASSETS.value,
+                "progress": 22,
+                "message": "审核已通过，开始生成资产包",
                 "timestamp": datetime.now().isoformat(),
             }
         else:
@@ -1506,7 +1760,7 @@ async def run_project_action(
                     _persist_project_script(project_id, script_dict)
 
             background_tasks.add_task(
-                run_resume_from_script_workflow,
+                run_generate_asset_pack_workflow,
                 project_id,
                 request.video_engine or (_projects[project_id].get("workflow_request") or {}).get("video_engine") or "kling",
                 request.add_subtitles,
@@ -1514,20 +1768,20 @@ async def run_project_action(
             _projects[project_id]["status"] = {
                 "type": "status",
                 "project_id": project_id,
-                "stage": WorkflowStage.GENERATING_IMAGES.value,
-                "progress": 20,
-                "message": "审核已通过，已从审核检查点恢复继续生成",
+                "stage": WorkflowStage.GENERATING_ASSETS.value,
+                "progress": 22,
+                "message": "审核已通过，开始生成资产包",
                 "timestamp": datetime.now().isoformat(),
             }
             save_project_meta(project_id)
-            return {"project_id": project_id, "message": "审核已通过，工作流已从审核检查点恢复"}
+            return {"project_id": project_id, "message": "审核已通过，开始生成资产包"}
 
         _review_decisions[project_id] = {
             "approved": True,
             "scenes": request.scenes or None,
         }
         _review_events[project_id].set()
-        return {"project_id": project_id, "message": "审核已通过，工作流继续执行"}
+        return {"project_id": project_id, "message": "审核已通过，开始生成资产包"}
 
     if action == "reject_review":
         if project_id not in _review_events:
@@ -1558,7 +1812,7 @@ async def run_project_action(
             "从脚本继续前发现当前生成配置不完整，请先完成 Setup 再继续。",
         )
         background_tasks.add_task(
-            run_resume_from_script_workflow,
+            run_generate_asset_pack_workflow,
             project_id,
             request.video_engine or "kling",
             request.add_subtitles,
@@ -1566,13 +1820,78 @@ async def run_project_action(
         _projects[project_id]["status"] = {
             "type": "status",
             "project_id": project_id,
-            "stage": WorkflowStage.GENERATING_IMAGES.value,
-            "progress": 20,
-            "message": "已从脚本恢复，准备继续生成",
+            "stage": WorkflowStage.GENERATING_ASSETS.value,
+            "progress": 22,
+            "message": "已从脚本恢复，开始生成资产包",
             "timestamp": datetime.now().isoformat(),
         }
         save_project_meta(project_id)
-        return {"project_id": project_id, "message": "已从脚本恢复，开始继续生成"}
+        return {"project_id": project_id, "message": "已从脚本恢复，开始生成资产包"}
+
+    if action == "save_asset_draft":
+        asset_pack = _load_asset_pack(project_id) or {"status": "draft", "characters": [], "scene_looks": [], "props": []}
+        asset_pack = _merge_asset_pack_edits(asset_pack, request.asset_pack)
+        asset_pack["status"] = "draft"
+        _persist_asset_pack(project_id, asset_pack)
+        _projects[project_id]["asset_pack"] = asset_pack
+        save_project_meta(project_id)
+        return {"project_id": project_id, "message": "资产草稿已保存"}
+
+    if action == "approve_assets":
+        asset_pack = _load_asset_pack(project_id)
+        if not asset_pack:
+            raise HTTPException(status_code=400, detail="当前项目还没有可确认的资产包")
+        asset_pack = _merge_asset_pack_edits(asset_pack, request.asset_pack)
+        for category in ["characters", "scene_looks", "props"]:
+            for item in asset_pack.get(category, []):
+                item["approved"] = True
+        asset_pack["status"] = "approved"
+        _persist_asset_pack(project_id, asset_pack)
+        _projects[project_id]["asset_pack"] = asset_pack
+        background_tasks.add_task(
+            run_resume_from_script_workflow,
+            project_id,
+            request.video_engine or (_projects[project_id].get("workflow_request") or {}).get("video_engine") or "kling",
+            request.add_subtitles,
+        )
+        _projects[project_id]["status"] = {
+            "type": "status",
+            "project_id": project_id,
+            "stage": WorkflowStage.GENERATING_IMAGES.value,
+            "progress": 25,
+            "message": "资产已确认，开始生成关键帧和配音",
+            "timestamp": datetime.now().isoformat(),
+        }
+        save_project_meta(project_id)
+        return {"project_id": project_id, "message": "资产已确认，开始继续生成"}
+
+    if action == "regenerate_all_assets":
+        background_tasks.add_task(
+            run_generate_asset_pack_workflow,
+            project_id,
+            request.video_engine or (_projects[project_id].get("workflow_request") or {}).get("video_engine") or "kling",
+            request.add_subtitles,
+            force=True,
+        )
+        return {"project_id": project_id, "message": "已开始重新生成全部资产"}
+
+    if action == "regenerate_asset":
+        if not request.asset_category or not request.asset_id:
+            raise HTTPException(status_code=400, detail="缺少 asset_category 或 asset_id")
+        existing_asset_pack = _load_asset_pack(project_id) or {"status": "draft", "characters": [], "scene_looks": [], "props": []}
+        merged_asset_pack = _merge_asset_pack_edits(existing_asset_pack, request.asset_pack)
+        _persist_asset_pack(project_id, merged_asset_pack)
+        _projects[project_id]["asset_pack"] = merged_asset_pack
+        background_tasks.add_task(
+            run_generate_asset_pack_workflow,
+            project_id,
+            request.video_engine or (_projects[project_id].get("workflow_request") or {}).get("video_engine") or "kling",
+            request.add_subtitles,
+            force=True,
+            asset_category=request.asset_category,
+            asset_id=request.asset_id,
+        )
+        return {"project_id": project_id, "message": "已开始重新生成资产"}
 
     if action == "resume_from_video":
         _raise_setup_required(
@@ -1984,6 +2303,30 @@ async def run_resume_from_script_workflow(
         stored_resolution = workflow_request.get("resolution") or "1080p"
         effective_video_engine = video_engine or workflow_request.get("video_engine") or "kling"
         effective_add_subtitles = add_subtitles if add_subtitles is not None else bool(workflow_request.get("add_subtitles", True))
+        asset_pack = _load_asset_pack(project_id)
+
+        if not asset_pack:
+            await run_generate_asset_pack_workflow(
+                project_id,
+                video_engine=effective_video_engine,
+                add_subtitles=effective_add_subtitles,
+            )
+            return
+
+        if asset_pack.get("status") != "approved":
+            _projects[project_id]["asset_pack"] = asset_pack
+            await push_status(
+                project_id,
+                WorkflowStage.AWAITING_ASSET_REVIEW,
+                24,
+                "资产包待确认，请先确认人物、场景和道具资产后继续",
+                asset_pack=_serialize_asset_pack(project_id, asset_pack),
+                requires_action=True,
+                action_type="review_assets",
+            )
+            return
+
+        script, scene_style_references = _apply_asset_pack_to_script(script, asset_pack)
 
         await push_status(
             project_id,
@@ -2002,6 +2345,7 @@ async def run_resume_from_script_workflow(
             scenes=script.scenes,
             output_dir=images_dir,
             reference_images=reference_images,
+            style_reference_map=scene_style_references,
             characters=script.characters or [],
             config=config,
             verbose=True,

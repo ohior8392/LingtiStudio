@@ -2,6 +2,8 @@ export type WorkflowStage =
   | "idle"
   | "generating_script"
   | "awaiting_review"
+  | "generating_assets"
+  | "awaiting_asset_review"
   | "generating_images"
   | "generating_audio"
   | "generating_video"
@@ -28,6 +30,34 @@ export interface ScriptDraft {
   total_duration?: number;
   scenes: SceneDraft[];
   metadata?: Record<string, unknown>;
+  characters?: Array<{
+    character_id: number;
+    name: string;
+    description: string;
+    appearance_prompt: string;
+    gender?: string;
+    replacement_image?: string | null;
+  }>;
+}
+
+export interface AssetEntry {
+  asset_id: string;
+  name: string;
+  prompt: string;
+  image_path?: string | null;
+  preview_url?: string;
+  approved: boolean;
+  character_id?: number;
+  scene_id?: number;
+  scene_ids?: number[];
+}
+
+export interface AssetPack {
+  status: "draft" | "approved";
+  generated_at?: string;
+  characters: AssetEntry[];
+  scene_looks: AssetEntry[];
+  props: AssetEntry[];
 }
 
 export interface ProjectResult {
@@ -56,6 +86,7 @@ export interface ProjectStatus {
   requires_action?: boolean;
   action_type?: string;
   script?: ScriptDraft;
+  asset_pack?: AssetPack;
   result?: ProjectResult;
 }
 
@@ -67,7 +98,16 @@ export interface ProjectLog {
 }
 
 export interface ProjectAction {
-  key: "approve_review" | "reject_review" | "resume_from_script" | "resume_from_video" | "reassemble";
+  key:
+    | "approve_review"
+    | "reject_review"
+    | "resume_from_script"
+    | "resume_from_video"
+    | "reassemble"
+    | "save_asset_draft"
+    | "approve_assets"
+    | "regenerate_all_assets"
+    | "regenerate_asset";
   label: string;
   kind: "primary" | "danger" | "default";
 }
@@ -96,6 +136,11 @@ export interface ProjectRecord {
   topic: string;
   created_at: string;
   status: ProjectStatus;
+  workflow_request?: {
+    video_engine?: "kling" | "seedance" | "minimax" | "auto";
+    add_subtitles?: boolean;
+    aspect_ratio?: string;
+  };
   voice_id?: string | null;
   script?: ScriptDraft | null;
   result?: ProjectResult | null;
@@ -103,6 +148,7 @@ export interface ProjectRecord {
   has_script?: boolean;
   has_keyframes?: boolean;
   resumable_from_script?: boolean;
+  asset_pack?: AssetPack | null;
   artifacts?: ArtifactManifest;
   actions?: ProjectAction[];
 }

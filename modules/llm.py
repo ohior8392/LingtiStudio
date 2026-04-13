@@ -917,8 +917,22 @@ def script_to_dict(script: VideoScript) -> dict:
                 "reference_character": s.reference_character,
                 "shot_mode": s.shot_mode,
                 "character_refs": s.character_refs,
+                "speaker_id": s.speaker_id,
+                "characters_in_scene": s.characters_in_scene,
             }
             for s in script.scenes
+        ],
+        "characters": [
+            {
+                "character_id": c.character_id,
+                "name": c.name,
+                "description": c.description,
+                "appearance_prompt": c.appearance_prompt,
+                "gender": c.gender,
+                "thumbnail_base64": c.thumbnail_base64,
+                "replacement_image": c.replacement_image,
+            }
+            for c in script.characters
         ],
         "metadata": script.metadata,
     }

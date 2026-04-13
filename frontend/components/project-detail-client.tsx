@@ -35,6 +35,7 @@ import {
 
 import { useLanguage } from "@/components/language-provider";
 import {
+  resolveApiAssetUrl,
   createProjectSocket,
   deleteProject,
   getDownloadDraftUrl,
@@ -47,6 +48,7 @@ import {
   updateProjectTitle
 } from "@/lib/api";
 import type {
+  AssetPack,
   ProjectAction,
   ProjectLog,
   ProjectRecord,
@@ -67,6 +69,8 @@ const stageLabel: Record<string, string> = {
   idle: "待处理",
   generating_script: "脚本生成",
   awaiting_review: "等待审核",
+  generating_assets: "资产生成",
+  awaiting_asset_review: "资产确认",
   generating_images: "关键帧生成",
   generating_audio: "配音生成",
   generating_video: "视频生成",
@@ -78,6 +82,7 @@ const stageLabel: Record<string, string> = {
 const workflowSteps = [
   { key: "generating_script", title: "脚本" },
   { key: "awaiting_review", title: "审核" },
+  { key: "generating_assets", title: "资产" },
   { key: "generating_images", title: "关键帧" },
   { key: "generating_audio", title: "配音" },
   { key: "generating_video", title: "视频" },
@@ -90,6 +95,7 @@ function mergeProjectRecord(project: ProjectRecord, status: ProjectStatus): Proj
   const nextResult = status.result
     ? { ...(project.result || {}), ...(status.result as ProjectResult) }
     : project.result;
+  const nextAssetPack = status.asset_pack ? status.asset_pack : project.asset_pack;
 
   return {
     ...project,
@@ -98,13 +104,17 @@ function mergeProjectRecord(project: ProjectRecord, status: ProjectStatus): Proj
       ...status
     },
     script: nextScript,
-    result: nextResult
+    result: nextResult,
+    asset_pack: nextAssetPack,
   };
 }
 
 function getCurrentStep(stage?: string) {
   if (!stage || stage === "idle") {
     return 0;
+  }
+  if (stage === "awaiting_asset_review") {
+    return workflowSteps.findIndex((step) => step.key === "generating_assets");
   }
   if (stage === "failed") {
     return Math.max(workflowSteps.length - 2, 0);
@@ -247,6 +257,7 @@ export function ProjectDetailClient({
   const router = useRouter();
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [reviewScenes, setReviewScenes] = useState<SceneDraft[]>([]);
+  const [assetPackDraft, setAssetPackDraft] = useState<AssetPack | null>(null);
   const [logs, setLogs] = useState<ProjectLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string>();
@@ -264,6 +275,7 @@ export function ProjectDetailClient({
       ]);
       setProject(data);
       setReviewScenes(data.script?.scenes || data.result?.script?.scenes || []);
+      setAssetPackDraft(data.asset_pack || null);
       setLogs(projectLogs);
     } catch (error) {
       messageApi.error((error as Error).message);
@@ -288,6 +300,9 @@ export function ProjectDetailClient({
           const nextProject = mergeProjectRecord(prev, status);
           if (status.script?.scenes) {
             setReviewScenes(status.script.scenes);
+          }
+          if ((status as ProjectStatus & { asset_pack?: AssetPack }).asset_pack) {
+            setAssetPackDraft((status as ProjectStatus & { asset_pack?: AssetPack }).asset_pack || null);
           }
           return nextProject;
         });
@@ -316,7 +331,10 @@ export function ProjectDetailClient({
   const actions = project?.actions || [];
   const isCompleted = project?.status?.stage === "completed";
   const isAwaitingReview = project?.status?.stage === "awaiting_review";
+  const isAwaitingAssetReview = project?.status?.stage === "awaiting_asset_review";
   const artifacts = project?.artifacts;
+  const currentVideoEngine = project?.workflow_request?.video_engine || "kling";
+  const currentAddSubtitles = project?.workflow_request?.add_subtitles ?? true;
   const errorInsight = useMemo(
     () => analyzeWorkflowError(project?.status?.error, project?.status?.message, isZh),
     [isZh, project?.status?.error, project?.status?.message]
@@ -327,6 +345,12 @@ export function ProjectDetailClient({
       setDraftTitle(scriptTitle);
     }
   }, [scriptTitle]);
+
+  useEffect(() => {
+    if (project?.asset_pack) {
+      setAssetPackDraft(project.asset_pack);
+    }
+  }, [project?.asset_pack]);
 
   const reviewItems = reviewScenes.map((scene, index) => ({
     key: String(scene.scene_id),
@@ -375,8 +399,9 @@ export function ProjectDetailClient({
     try {
       await runProjectAction(projectId, action, {
         scenes: action === "approve_review" ? reviewScenes : undefined,
-        video_engine: "kling",
-        add_subtitles: true
+        asset_pack: action === "approve_assets" || action === "save_asset_draft" ? assetPackDraft || undefined : undefined,
+        video_engine: currentVideoEngine,
+        add_subtitles: currentAddSubtitles
       });
       messageApi.success(isZh ? "操作已提交" : "Action submitted");
       await loadProject();
@@ -396,6 +421,42 @@ export function ProjectDetailClient({
     try {
       await updateScript(projectId, reviewScenes);
       messageApi.success(isZh ? "分镜草稿已保存" : "Scene draft saved");
+      await loadProject();
+    } catch (error) {
+      messageApi.error((error as Error).message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleSaveAssetDraft() {
+    setBusyAction("save_asset_draft");
+    try {
+      await runProjectAction(projectId, "save_asset_draft", {
+        asset_pack: assetPackDraft || undefined,
+        add_subtitles: currentAddSubtitles,
+        video_engine: currentVideoEngine,
+      });
+      messageApi.success(isZh ? "资产草稿已保存" : "Asset draft saved");
+      await loadProject();
+    } catch (error) {
+      messageApi.error((error as Error).message);
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function handleRegenerateAsset(category: "characters" | "scene_looks" | "props", assetId: string) {
+    setBusyAction(`regenerate:${category}:${assetId}`);
+    try {
+      await runProjectAction(projectId, "regenerate_asset", {
+        asset_pack: assetPackDraft || undefined,
+        asset_category: category,
+        asset_id: assetId,
+        add_subtitles: currentAddSubtitles,
+        video_engine: currentVideoEngine,
+      });
+      messageApi.success(isZh ? "资产已开始重新生成" : "Asset regeneration started");
       await loadProject();
     } catch (error) {
       messageApi.error((error as Error).message);
@@ -463,6 +524,8 @@ export function ProjectDetailClient({
               idle: "Idle",
               generating_script: "Script",
               awaiting_review: "Review",
+              generating_assets: "Assets",
+              awaiting_asset_review: "Asset review",
               generating_images: "Keyframes",
               generating_audio: "Voiceover",
               generating_video: "Video",
@@ -665,6 +728,8 @@ export function ProjectDetailClient({
                     assembling: "Assembling",
                     completed: "Completed",
                     failed: "Failed",
+                    generating_assets: "Generating assets",
+                    awaiting_asset_review: "Awaiting asset review",
                   }[project?.status?.stage || "idle"])}
                 </Descriptions.Item>
                 <Descriptions.Item label={isZh ? "进度" : "Progress"}>
@@ -767,6 +832,117 @@ export function ProjectDetailClient({
                   />
                 )}
               </Space>
+            </Card>
+
+            <Card className="lingti-card" loading={loading} title={isZh ? "资产确认台" : "Asset Review"}>
+              {assetPackDraft ? (
+                <Space direction="vertical" size={18} style={{ width: "100%" }}>
+                  <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+                    {isZh
+                      ? "先确认人物、场景和道具资产，再继续后续关键帧和视频生成，这样全片前后会更一致。"
+                      : "Confirm character, scene, and prop assets first so downstream keyframes and clips stay more consistent."}
+                  </Typography.Paragraph>
+
+                  {([
+                    ["characters", isZh ? "人物资产" : "Character Assets"],
+                    ["scene_looks", isZh ? "场景资产" : "Scene Look Assets"],
+                    ["props", isZh ? "道具资产" : "Prop Assets"],
+                  ] as const).map(([category, title]) => {
+                    const items = assetPackDraft[category] || [];
+                    return (
+                      <Card key={category} size="small" className="lingti-mini-card" title={title}>
+                        {items.length ? (
+                          <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                            {items.map((item) => (
+                              <div key={item.asset_id} className="artifact-item">
+                                <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                                  <Space wrap>
+                                    <Typography.Text strong>{item.name}</Typography.Text>
+                                    {item.approved ? <Tag color="green">{isZh ? "已确认" : "Approved"}</Tag> : <Tag>{isZh ? "待确认" : "Draft"}</Tag>}
+                                  </Space>
+                                  {item.preview_url ? (
+                                    <img
+                                      src={resolveApiAssetUrl(item.preview_url)}
+                                      alt={item.name}
+                                      style={{ width: 220, maxWidth: "100%", borderRadius: 14, border: "1px solid rgba(96,165,250,0.16)" }}
+                                    />
+                                  ) : null}
+                                  <Input.TextArea
+                                    rows={3}
+                                    value={item.prompt}
+                                    onChange={(event) => {
+                                      if (!assetPackDraft) return;
+                                      const next = structuredClone(assetPackDraft);
+                                      const target = next[category].find((entry) => entry.asset_id === item.asset_id);
+                                      if (target) {
+                                        target.prompt = event.target.value;
+                                        target.approved = false;
+                                      }
+                                      setAssetPackDraft(next);
+                                    }}
+                                  />
+                                  <Space wrap>
+                                    <Button
+                                      icon={<ReloadOutlined />}
+                                      loading={busyAction === `regenerate:${category}:${item.asset_id}`}
+                                      onClick={() => void handleRegenerateAsset(category, item.asset_id)}
+                                    >
+                                      {isZh ? "重新生成" : "Regenerate"}
+                                    </Button>
+                                  </Space>
+                                </Space>
+                              </div>
+                            ))}
+                          </Space>
+                        ) : (
+                          <Empty description={isZh ? "当前没有可确认资产" : "No assets in this category"} />
+                        )}
+                      </Card>
+                    );
+                  })}
+
+                  {isAwaitingAssetReview ? (
+                    <Space wrap>
+                      <Button
+                        icon={<SaveOutlined />}
+                        loading={busyAction === "save_asset_draft"}
+                        onClick={() => void handleSaveAssetDraft()}
+                      >
+                        {isZh ? "保存资产草稿" : "Save asset draft"}
+                      </Button>
+                      <Button
+                        icon={<ReloadOutlined />}
+                        loading={busyAction === "regenerate_all_assets"}
+                        onClick={() => void handleAction("regenerate_all_assets")}
+                      >
+                        {isZh ? "重新生成全部资产" : "Regenerate all assets"}
+                      </Button>
+                      <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        loading={busyAction === "approve_assets"}
+                        onClick={() => void handleAction("approve_assets")}
+                      >
+                        {isZh ? "确认资产并继续" : "Approve assets and continue"}
+                      </Button>
+                    </Space>
+                  ) : (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message={isZh ? "当前项目不在资产确认阶段" : "This project is not in asset review"}
+                      description={isZh ? "资产包生成后，这里会暂停让你先确认人物、场景和道具图。" : "Once the asset pack is generated, this panel will pause the workflow for confirmation."}
+                    />
+                  )}
+                </Space>
+              ) : (
+                <Alert
+                  type="info"
+                  showIcon
+                  message={isZh ? "当前还没有资产包" : "No asset pack yet"}
+                  description={isZh ? "脚本审核通过后，系统会先生成可确认的人物、场景和道具资产。" : "After script review, LingtiStudio will generate reviewable character, scene, and prop assets here."}
+                />
+              )}
             </Card>
 
             <Card className="lingti-card" loading={loading} title={isZh ? "输出与资产" : "Output and Assets"}>

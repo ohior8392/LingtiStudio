@@ -30,6 +30,8 @@ const stageColorMap: Record<WorkflowStage, string> = {
   idle: "default",
   generating_script: "processing",
   awaiting_review: "warning",
+  generating_assets: "processing",
+  awaiting_asset_review: "warning",
   generating_images: "processing",
   generating_audio: "processing",
   generating_video: "processing",
@@ -42,6 +44,8 @@ const stageLabelMap: Record<WorkflowStage, string> = {
   idle: "待处理",
   generating_script: "脚本生成中",
   awaiting_review: "等待审核",
+  generating_assets: "资产生成中",
+  awaiting_asset_review: "等待资产确认",
   generating_images: "关键帧生成中",
   generating_audio: "配音生成中",
   generating_video: "视频生成中",
@@ -92,13 +96,16 @@ export function ProjectsPanel({
   async function handleAction(projectId: string, action: ProjectAction["key"]) {
     const key = `${projectId}:${action}`;
     setBusyKey(key);
+    const project = projects.find((item) => item.id === projectId);
+    const videoEngine = project?.workflow_request?.video_engine || "kling";
+    const addSubtitles = project?.workflow_request?.add_subtitles ?? true;
     try {
       if (action === "resume_from_script") {
-        await resumeProjectFromScript(projectId, "kling", true);
+        await resumeProjectFromScript(projectId, videoEngine, addSubtitles);
       } else if (action === "resume_from_video") {
-        await resumeProject(projectId, "kling", true);
+        await resumeProject(projectId, videoEngine, addSubtitles);
       } else if (action === "reassemble") {
-        await reassembleProject(projectId, true);
+        await reassembleProject(projectId, addSubtitles);
       }
       await fetchProjects();
       onSelect?.(projectId);
@@ -259,6 +266,8 @@ export function ProjectsPanel({
                                       idle: "Idle",
                                       generating_script: "Generating script",
                                       awaiting_review: "Awaiting review",
+                                      generating_assets: "Generating assets",
+                                      awaiting_asset_review: "Awaiting asset review",
                                       generating_images: "Generating keyframes",
                                       generating_audio: "Generating voiceover",
                                       generating_video: "Generating video",
